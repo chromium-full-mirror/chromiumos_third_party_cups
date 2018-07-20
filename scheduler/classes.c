@@ -279,7 +279,7 @@ cupsdLoadAllClasses(void)
   * Open the classes.conf file...
   */
 
-  snprintf(line, sizeof(line), "%s/classes.conf", ServerRoot);
+  snprintf(line, sizeof(line), "%s/classes.conf", PrinterRoot);
   if ((fp = cupsdOpenConfFile(line)) == NULL)
     return;
 
@@ -671,7 +671,7 @@ cupsdSaveAllClasses(void)
   * Create the classes.conf file...
   */
 
-  snprintf(filename, sizeof(filename), "%s/classes.conf", ServerRoot);
+  snprintf(filename, sizeof(filename), "%s/classes.conf", PrinterRoot);
 
   if ((fp = cupsdCreateConfFile(filename, ConfigFilePerm)) == NULL)
     return;

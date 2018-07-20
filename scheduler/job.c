@@ -985,7 +985,7 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
            job->filetypes[job->current_file]->type);
   snprintf(device_uri, sizeof(device_uri), "DEVICE_URI=%s",
            job->printer->device_uri);
-  snprintf(ppd, sizeof(ppd), "PPD=%s/ppd/%s.ppd", ServerRoot,
+  snprintf(ppd, sizeof(ppd), "PPD=%s/ppd/%s.ppd", PrinterRoot,
 	   job->printer->name);
   snprintf(printer_info, sizeof(printer_name), "PRINTER_INFO=%s",
            job->printer->info ? job->printer->info : "");

@@ -199,6 +199,8 @@ extern void		cupsdReleaseSignals(void);
 extern void		cupsdSetString(char **s, const char *v);
 extern void		cupsdSetStringf(char **s, const char *f, ...)
 			__attribute__ ((__format__ (__printf__, 2, 3)));
+extern void		cupsdGetPPDPath(char *s, size_t s_size,
+					const cupsd_printer_t *p, int backup);
 
 /* process.c */
 extern void		*cupsdCreateProfile(int job_id, int allow_networking);

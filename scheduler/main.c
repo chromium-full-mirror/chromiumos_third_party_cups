@@ -1278,6 +1278,22 @@ cupsdSetString(char       **s,		/* O - New string */
 
 
 /*
+ * 'cupsdGetPPDPath()' - Get the path of the PPD for a particular printer.
+ */
+
+void
+cupsdGetPPDPath(char                  *s,	/* O - Output string */
+		size_t                s_size,	/* I - Size of 's' */
+                const cupsd_printer_t *p,	/* I - Printer */
+	        int                   backup)	/* I - Get the backup path (*.O)? */
+{
+	if (backup)
+		snprintf(s, s_size, "%s/ppd/%s.ppd.O", PrinterRoot, p->name);
+	else
+		snprintf(s, s_size, "%s/ppd/%s.ppd", PrinterRoot, p->name);
+}
+
+/*
  * 'cupsdSetStringf()' - Set a formatted string value.
  */
 
