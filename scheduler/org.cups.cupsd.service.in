@@ -1,10 +1,11 @@
 [Unit]
 Description=CUPS Scheduler
 Documentation=man:cupsd(8)
+After=network.target
 
 [Service]
 ExecStart=@sbindir@/cupsd -l
-Type=simple
+Type=notify
 
 [Install]
 Also=cups.socket cups.path

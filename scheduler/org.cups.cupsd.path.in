@@ -2,7 +2,7 @@
 Description=CUPS Scheduler
 
 [Path]
-PathExists=@CUPS_CACHEDIR@/org.cups.cupsd
+PathExistsGlob=@CUPS_REQUESTS@/d*
 
 [Install]
 WantedBy=multi-user.target
