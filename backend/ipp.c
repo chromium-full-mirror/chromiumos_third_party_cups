@@ -435,7 +435,7 @@ main(int  argc,				/* I - Number of command-line args */
   version     = 20;
   waitjob     = 1;
   waitprinter = 1;
-  contimeout  = 7 * 24 * 60 * 60;
+  contimeout  = 20;
 
   if ((optptr = strchr(resource, '?')) != NULL)
   {
@@ -824,17 +824,17 @@ main(int  argc,				/* I - Number of command-line args */
 
       fprintf(stderr, "DEBUG: Connection error: %s\n", strerror(errno));
 
+      if (contimeout && (time(NULL) - start_time) > contimeout)
+      {
+        _cupsLangPrintFilter(stderr, "ERROR",
+                             _("The printer is not responding."));
+        update_reasons(NULL, "-connecting-to-device");
+        return (CUPS_BACKEND_FAILED);
+      }
+
       if (errno == ECONNREFUSED || errno == EHOSTDOWN ||
           errno == EHOSTUNREACH)
       {
-        if (contimeout && (time(NULL) - start_time) > contimeout)
-	{
-	  _cupsLangPrintFilter(stderr, "ERROR",
-	                       _("The printer is not responding."));
-	  update_reasons(NULL, "-connecting-to-device");
-	  return (CUPS_BACKEND_FAILED);
-	}
-
 	switch (error)
 	{
 	  case EHOSTDOWN :
