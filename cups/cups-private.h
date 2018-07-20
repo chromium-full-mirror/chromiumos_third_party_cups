@@ -261,6 +261,13 @@ extern void		_cupsGlobalUnlock(void);
 extern const char	*_cupsGSSServiceName(void);
 #  endif /* HAVE_GSSAPI */
 extern int		_cupsNextDelay(int current, int *previous);
+extern int		_cupsSearchFilter(const char *search_root,
+			                  const char *filter_name,
+			                  char *full_path,
+			                  size_t full_path_size);
+extern int 		_cupsSearchFilterLatest(const char *filter_name,
+			                        char       *full_path,
+			                        size_t     full_path_size);
 extern void		_cupsSetDefaults(void);
 extern void		_cupsSetError(ipp_status_t status, const char *message,
 			              int localize);
