@@ -3029,9 +3029,11 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 
       if (!_cups_strcasecmp(format, "application/pdf"))
         cupsFilePuts(fp, "*cupsFilter2: \"application/vnd.cups-pdf application/pdf 10 -\"\n");
-      else if (!_cups_strcasecmp(format, "application/postscript"))
-        cupsFilePuts(fp, "*cupsFilter2: \"application/vnd.cups-postscript application/postscript 10 -\"\n");
-      else if (_cups_strcasecmp(format, "application/octet-stream") && _cups_strcasecmp(format, "application/vnd.hp-pcl") && _cups_strcasecmp(format, "text/plain"))
+      else if (!_cups_strcasecmp(format, "image/jpeg") || !_cups_strcasecmp(format, "image/png"))
+        cupsFilePrintf(fp, "*cupsFilter2: \"%s %s 0 -\"\n", format, format);
+      else if (!_cups_strcasecmp(format, "image/pwg-raster"))
+        cupsFilePrintf(fp, "*cupsFilter2: \"%s %s 100 -\"\n", format, format);
+      else if (_cups_strcasecmp(format, "application/octet-stream") && _cups_strcasecmp(format, "application/postscript") && _cups_strncasecmp(format, "application/vnd.", 16) && _cups_strncasecmp(format, "image/vnd.", 10) && _cups_strcasecmp(format, "image/tiff") && _cups_strncasecmp(format, "text/", 5))
         cupsFilePrintf(fp, "*cupsFilter2: \"%s %s 10 -\"\n", format, format);
     }
   }
