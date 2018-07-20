@@ -73,7 +73,7 @@ MAN8	=	cupsaccept.$(MAN8EXT) \
 # Make everything...
 #
 
-all:	$(MAN1) $(MAN5) $(MAN7) $(MAN8) html
+all:	$(MAN1) $(MAN5) $(MAN7) $(MAN8)
 
 
 #

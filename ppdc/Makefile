@@ -70,7 +70,6 @@ EXECTARGETS =	\
 TARGETS	=	\
 		$(LIBTARGETS) \
 		$(EXECTARGETS) \
-		genstrings
 
 
 #
