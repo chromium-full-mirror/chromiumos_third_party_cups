@@ -304,6 +304,12 @@ AC_ARG_WITH(rundir, [  --with-rundir           set transient run-time state dire
 AC_DEFINE_UNQUOTED(CUPS_STATEDIR, "$CUPS_STATEDIR")
 AC_SUBST(CUPS_STATEDIR)
 
+# Printer files
+AC_ARG_WITH(printerroot, [  --with-printerroot   set location for printer configurations],printerroot="$withval",printerroot="$CUPS_SERVERROOT")
+CUPS_PRINTERROOT="$printerroot"
+AC_DEFINE_UNQUOTED(CUPS_PRINTERROOT, "$CUPS_PRINTERROOT")
+AC_SUBST(CUPS_PRINTERROOT)
+
 dnl
 dnl End of "$Id: cups-directories.m4 11717 2014-03-21 16:42:53Z msweet $".
 dnl
