@@ -79,7 +79,8 @@ LIBOBJS	=	\
 		tls.o \
 		transcode.o \
 		usersys.o \
-		util.o
+		util.o \
+		ippusb.o
 TESTOBJS	= \
 		testadmin.o \
 		testarray.o \
@@ -137,7 +138,8 @@ HEADERSPRIV =	\
 		raster-private.h \
 		snmp-private.h \
 		string-private.h \
-		thread-private.h
+		thread-private.h \
+		ippusb-private.h
 
 
 #
