@@ -3331,7 +3331,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
       const char *keyword = ippGetString(attr, i, NULL);
 					/* Keyword for color/bit depth */
 
-      if (!strcmp(keyword, "black_1") || !strcmp(keyword, "bi-level") || !strcmp(keyword, "process-bi-level"))
+      if (!strcasecmp(keyword, "black_1") || !strcmp(keyword, "bi-level") || !strcmp(keyword, "process-bi-level"))
       {
         if (!default_color)
 	  cupsFilePuts(fp, "*OpenUI *ColorModel/Color Mode: PickOne\n"
@@ -3342,7 +3342,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
         if (!default_color)
 	  default_color = "FastGray";
       }
-      else if (!strcmp(keyword, "sgray_8") || !strcmp(keyword, "monochrome") || !strcmp(keyword, "process-monochrome"))
+      else if (!strcasecmp(keyword, "sgray_8") || !strcmp(keyword, "monochrome") || !strcmp(keyword, "process-monochrome"))
       {
         if (!default_color)
 	  cupsFilePuts(fp, "*OpenUI *ColorModel/Color Mode: PickOne\n"
@@ -3353,7 +3353,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
         if (!default_color || !strcmp(default_color, "FastGray"))
 	  default_color = "Gray";
       }
-      else if (!strcmp(keyword, "srgb_8") || !strcmp(keyword, "color"))
+      else if (!strcasecmp(keyword, "srgb_8") || !strcmp(keyword, "color"))
       {
         if (!default_color)
 	  cupsFilePuts(fp, "*OpenUI *ColorModel/Color Mode: PickOne\n"
