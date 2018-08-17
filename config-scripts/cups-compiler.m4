@@ -28,7 +28,7 @@ dnl For debugging, keep symbols, otherwise strip them...
 if test x$enable_debug = xyes; then
 	OPTIM="-g"
 else
-	INSTALL_STRIP="-s"
+	INSTALL_STRIP=""
 fi
 
 dnl Debug printfs can slow things down, so provide a separate option for that
