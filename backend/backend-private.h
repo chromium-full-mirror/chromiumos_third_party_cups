@@ -293,6 +293,10 @@ extern "C" {
 #define CUPS_TC_csWindows31J			2024
 
 
+/* ChromeOS backend constants */
+#define CROS_PRINTER_CONNECT_TIMEOUT            20 /* seconds */
+#define CROS_PRINTER_RETRY_TIMEOUT              5  /* seconds */
+
 /*
  * Types...
  */

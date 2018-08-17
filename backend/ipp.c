@@ -431,7 +431,7 @@ main(int  argc,				/* I - Number of command-line args */
   version     = 20;
   waitjob     = 1;
   waitprinter = 1;
-  contimeout  = 7 * 24 * 60 * 60;
+  contimeout  = CROS_PRINTER_CONNECT_TIMEOUT;
 
   if ((optptr = strchr(resource, '?')) != NULL)
   {
@@ -765,16 +765,18 @@ main(int  argc,				/* I - Number of command-line args */
 
       fprintf(stderr, "DEBUG: Connection error: %s\n", strerror(errno));
 
-      if (errno == ECONNREFUSED || errno == EHOSTDOWN || errno == EHOSTUNREACH || errno == ETIMEDOUT || errno == ENOTCONN)
+      if ((time(NULL) - start_time) > contimeout)
       {
-        if (contimeout && (time(NULL) - start_time) > contimeout)
-	{
-	  _cupsLangPrintFilter(stderr, "ERROR",
-	                       _("The printer is not responding."));
-	  update_reasons(NULL, "-connecting-to-device");
-	  return (CUPS_BACKEND_FAILED);
-	}
+        _cupsLangPrintFilter(stderr, "ERROR",
+                             _("The printer is not responding."));
+        update_reasons(NULL, "-connecting-to-device");
+        update_reasons(NULL, "+timed-out");
+        return (CUPS_BACKEND_FAILED);
+      }
 
+      if (errno == ECONNREFUSED || errno == EHOSTDOWN ||
+          errno == EHOSTUNREACH)
+      {
 	switch (error)
 	{
 	  case EHOSTDOWN :
@@ -804,7 +806,7 @@ main(int  argc,				/* I - Number of command-line args */
       {
 	_cupsLangPrintFilter(stderr, "ERROR",
 	                     _("The printer is not responding."));
-	sleep(30);
+	sleep(CROS_PRINTER_RETRY_TIMEOUT);
       }
 
       if (job_canceled)
@@ -975,10 +977,12 @@ main(int  argc,				/* I - Number of command-line args */
       if (ipp_status == IPP_STATUS_ERROR_BUSY ||
 	  ipp_status == IPP_STATUS_ERROR_SERVICE_UNAVAILABLE)
       {
-        if (contimeout && (time(NULL) - start_time) > contimeout)
+        if ((time(NULL) - start_time) > contimeout)
 	{
 	  _cupsLangPrintFilter(stderr, "ERROR",
 	                       _("The printer is not responding."));
+          update_reasons(NULL, "-connecting-to-device");
+          update_reasons(NULL, "+timed-out");
 	  return (CUPS_BACKEND_FAILED);
 	}
 
@@ -1044,7 +1048,7 @@ main(int  argc,				/* I - Number of command-line args */
       {
 	_cupsLangPrintFilter(stderr, "ERROR",
 	                     _("Unable to get printer status."));
-        sleep(10);
+        sleep(CROS_PRINTER_RETRY_TIMEOUT);
 
 	httpReconnect2(http, 30000, NULL);
       }
