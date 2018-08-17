@@ -2432,6 +2432,11 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
 		   program);
       }
 
+      if (access(pathprog, F_OK) != 0) {
+	_cupsSearchFilterLatest(program,
+				pathprog,
+				sizeof(pathprog));
+      }
       if (stat(pathprog, &fileinfo))
       {
 	if (!warn && !errors && !verbose)
@@ -3914,6 +3919,7 @@ valid_path(const char *keyword,		/* I - Keyword using path */
   cups_dir_t	*dir;			/* Current directory */
   cups_dentry_t	*dentry;		/* Current directory entry */
   char		temp[1024],		/* Temporary path */
+		temp_slash[sizeof(temp) + 1],	/* Temporary path trailing with slash */
 		*ptr;			/* Pointer into temporary path */
   const char	*prefix;		/* WARN/FAIL prefix */
 
@@ -3936,11 +3942,16 @@ valid_path(const char *keyword,		/* I - Keyword using path */
     *ptr++ = '\0';
 
    /*
+    * Duplicate a basename that trails with slash.
+    * Since cupsDirOpen fails on a mount point not trails with slash.
+    */
+   snprintf(temp_slash, sizeof(temp_slash), "%s/", temp);
+   /*
     * Try opening the directory containing the base name...
     */
 
     if (temp[0])
-      dir = cupsDirOpen(temp);
+      dir = cupsDirOpen(temp_slash);
     else
       dir = cupsDirOpen("/");
 
