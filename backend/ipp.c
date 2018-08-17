@@ -16,6 +16,7 @@
 #include "backend-private.h"
 #include <cups/ppd-private.h>
 #include <cups/array-private.h>
+#include <cups/ippusb-private.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -656,6 +657,33 @@ main(int  argc,				/* I - Number of command-line args */
   */
 
   start_time = time(NULL);
+
+  fprintf(stderr, "DEBUG: Looking up \"%s\"...\n", hostname);
+
+  // If the scheme is ippusb then a query is sent to the ippusb_manager service
+  // to check if the printer is currently connected and get the name of the
+  // socket used for communication with the printer.
+  if (!strcmp(scheme, "ippusb")) {
+    int sock = open_ippusb_manager_socket();
+    char* response = query_ippusb_manager(sock, hostname);
+
+    close(sock);
+
+    int ret = snprintf(hostname, sizeof(hostname), "/run/ippusb/%s", response);
+    if (ret < 0 || ret >= sizeof(hostname)) {
+      fprintf(stderr, "ERROR: Failed to overwrite hostname");
+      _exit(1);
+    }
+
+    free(response);
+
+    // Change the scheme back to ipp so that communications will be understood
+    // by the printer.
+    strcpy(scheme, "ipp");
+
+    // Wait a maximum of 3 seconds for the socket to be created.
+    wait_for_socket(hostname, 3);
+  }
 
   addrlist = backendLookup(hostname, port, &job_canceled);
 

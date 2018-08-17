@@ -38,6 +38,7 @@ COREOBJS	=	\
 		ipp-file.o \
 		ipp-vars.o \
 		ipp-support.o \
+		ippusb.o \
 		langprintf.o \
 		language.o \
 		md5.o \
@@ -149,6 +150,7 @@ COREHEADERSPRIV =	\
 		file-private.h \
 		http-private.h \
 		ipp-private.h \
+		ippusb-private.h \
 		language-private.h \
 		pwg-private.h \
 		raster-private.h \
