@@ -256,7 +256,12 @@ _cupsConvertOptions(
   {
     if ((choice = ppdFindMarkedChoice(ppd, "ColorModel")) != NULL)
     {
-      if (!_cups_strcasecmp(choice->choice, "Gray"))
+      // Detect non-standard Grays.  Be sure to keep in sync with other
+      // ColorModel parsing.
+      if (!_cups_strcasecmp(choice->choice, "Gray") ||
+          !_cups_strcasecmp(choice->choice, "KGray") ||
+          !_cups_strcasecmp(choice->choice, "CMYGray") ||
+          !_cups_strcasecmp(choice->choice, "Grayscale"))
 	keyword = "monochrome";
       else
 	keyword = "color";
@@ -1457,11 +1462,31 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
     const char	*color_option = NULL,	/* Color control option */
 		*gray_choice = NULL;	/* Choice to select grayscale */
 
+    // Parse Gray and other non-standard Grays.  Keep in sync with
+    // keyword = monochrome detection.
     if ((color_model = ppdFindOption(ppd, "ColorModel")) != NULL &&
         ppdFindChoice(color_model, "Gray"))
     {
       color_option = "ColorModel";
       gray_choice  = "Gray";
+    }
+    else if ((color_model = ppdFindOption(ppd, "ColorModel")) != NULL &&
+        ppdFindChoice(color_model, "KGray"))
+    {
+      color_option = "ColorModel";
+      gray_choice  = "KGray";
+    }
+    else if ((color_model = ppdFindOption(ppd, "ColorModel")) != NULL &&
+        ppdFindChoice(color_model, "CMYGray"))
+    {
+      color_option = "ColorModel";
+      gray_choice  = "CMYGray";
+    }
+    else if ((color_model = ppdFindOption(ppd, "ColorModel")) != NULL &&
+        ppdFindChoice(color_model, "Grayscale"))
+    {
+      color_option = "ColorModel";
+      gray_choice  = "Grayscale";
     }
     else if ((color_model = ppdFindOption(ppd, "HPColorMode")) != NULL &&
              ppdFindChoice(color_model, "grayscale"))
