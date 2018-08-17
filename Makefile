@@ -18,7 +18,7 @@ include Makedefs
 # Directories to make...
 #
 
-DIRS	=	cups test $(BUILDDIRS)
+DIRS	=	cups $(BUILDDIRS)
 
 
 #
