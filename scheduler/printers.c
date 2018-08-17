@@ -956,7 +956,7 @@ cupsdLoadAllPrinters(void)
   * Open the printers.conf file...
   */
 
-  snprintf(line, sizeof(line), "%s/printers.conf", ServerRoot);
+  snprintf(line, sizeof(line), "%s/printers.conf", PrinterRoot);
   if ((fp = cupsdOpenConfFile(line)) == NULL)
     return;
 
@@ -1524,7 +1524,7 @@ cupsdSaveAllPrinters(void)
   * Create the printers.conf file...
   */
 
-  snprintf(filename, sizeof(filename), "%s/printers.conf", ServerRoot);
+  snprintf(filename, sizeof(filename), "%s/printers.conf", PrinterRoot);
 
   if ((fp = cupsdCreateConfFile(filename, ConfigFilePerm & 0600)) == NULL)
     return;
@@ -2910,8 +2910,8 @@ cupsdUpdatePrinterPPD(
   * Get the old and new PPD filenames...
   */
 
-  snprintf(srcfile, sizeof(srcfile), "%s/ppd/%s.ppd.O", ServerRoot, p->name);
-  snprintf(dstfile, sizeof(srcfile), "%s/ppd/%s.ppd", ServerRoot, p->name);
+  snprintf(srcfile, sizeof(srcfile), "%s/ppd/%s.ppd.O", PrinterRoot, p->name);
+  snprintf(dstfile, sizeof(srcfile), "%s/ppd/%s.ppd", PrinterRoot, p->name);
 
  /*
   * Rename the old file and open the old and new...
@@ -3943,7 +3943,7 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
   if (stat(cache_name, &cache_info))
     cache_info.st_mtime = 0;
 
-  snprintf(ppd_name, sizeof(ppd_name), "%s/ppd/%s.ppd", ServerRoot, p->name);
+  snprintf(ppd_name, sizeof(ppd_name), "%s/ppd/%s.ppd", PrinterRoot, p->name);
   if (stat(ppd_name, &ppd_info))
     ppd_info.st_mtime = 1;
 

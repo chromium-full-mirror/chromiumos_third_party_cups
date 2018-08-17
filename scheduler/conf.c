@@ -146,6 +146,7 @@ static const cupsd_var_t	cupsfiles_vars[] =
   { "LogFilePerm",		&LogFilePerm,		CUPSD_VARTYPE_PERM },
   { "PageLog",			&PageLog,		CUPSD_VARTYPE_STRING },
   { "Printcap",			&Printcap,		CUPSD_VARTYPE_STRING },
+  { "PrinterRoot",		&PrinterRoot,		CUPSD_VARTYPE_STRING },
   { "RemoteRoot",		&RemoteRoot,		CUPSD_VARTYPE_STRING },
   { "RequestRoot",		&RequestRoot,		CUPSD_VARTYPE_STRING },
   { "ServerBin",		&ServerBin,		CUPSD_VARTYPE_PATHNAME },
@@ -823,6 +824,9 @@ cupsdReadConfiguration(void)
   if (!ErrorLog)
     cupsdSetString(&ErrorLog, CUPS_LOGDIR "/error_log");
 
+  if (!PrinterRoot)
+    cupsdSetString(&PrinterRoot, ServerRoot);
+
  /*
   * Read the cupsd.conf file...
   */
@@ -1128,7 +1132,7 @@ cupsdReadConfiguration(void)
 #endif /* CUPS_SNAP */
        cupsdCheckPermissions(ServerRoot, NULL, 0755, RunUser,
 			     Group, 1, 0) < 0 ||
-       cupsdCheckPermissions(ServerRoot, "ppd", 0755, RunUser,
+       cupsdCheckPermissions(PrinterRoot, "ppd", 0755, RunUser,
 			     Group, 1, 1) < 0 ||
        cupsdCheckPermissions(ServerRoot, "ssl", 0700, RunUser,
 			     Group, 1, 0) < 0 ||
@@ -1136,9 +1140,9 @@ cupsdReadConfiguration(void)
 			     Group, 0, 0) < 0 ||
        cupsdCheckPermissions(CupsFilesFile, NULL, ConfigFilePerm, RunUser,
 			     Group, 0, 0) < 0 ||
-       cupsdCheckPermissions(ServerRoot, "classes.conf", 0600, RunUser,
+       cupsdCheckPermissions(PrinterRoot, "classes.conf", 0600, RunUser,
 			     Group, 0, 0) < 0 ||
-       cupsdCheckPermissions(ServerRoot, "printers.conf", 0600, RunUser,
+       cupsdCheckPermissions(PrinterRoot, "printers.conf", 0600, RunUser,
 			     Group, 0, 0) < 0 ||
        cupsdCheckPermissions(ServerRoot, "passwd.md5", 0600, User,
 			     Group, 0, 0) < 0) &&

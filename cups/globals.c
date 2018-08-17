@@ -268,6 +268,9 @@ cups_globals_alloc(void)
   if ((cg->cups_serverroot = getenv("CUPS_SERVERROOT")) == NULL)
     cg->cups_serverroot = confdir;
 
+  if ((cg->cups_printerroot = getenv("CUPS_PRINTERROOT")) == NULL)
+    cg->cups_printerroot = cg->cups_serverroot;
+
   if ((cg->cups_statedir = getenv("CUPS_STATEDIR")) == NULL)
     cg->cups_statedir = confdir;
 
@@ -291,6 +294,7 @@ cups_globals_alloc(void)
     cg->cups_datadir    = CUPS_DATADIR;
     cg->cups_serverbin  = CUPS_SERVERBIN;
     cg->cups_serverroot = CUPS_SERVERROOT;
+    cg->cups_printerroot = CUPS_PRINTERROOT;
     cg->cups_statedir   = CUPS_STATEDIR;
     cg->localedir       = CUPS_LOCALEDIR;
   }
@@ -308,6 +312,9 @@ cups_globals_alloc(void)
 
     if ((cg->cups_serverroot = getenv("CUPS_SERVERROOT")) == NULL)
       cg->cups_serverroot = CUPS_SERVERROOT;
+
+    if ((cg->cups_printerroot = getenv("CUPS_PRINTERROOT")) == NULL)
+      cg->cups_printerroot = CUPS_PRINTERROOT;
 
     if ((cg->cups_statedir = getenv("CUPS_STATEDIR")) == NULL)
       cg->cups_statedir = CUPS_STATEDIR;
