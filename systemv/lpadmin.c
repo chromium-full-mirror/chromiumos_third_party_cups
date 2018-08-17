@@ -13,6 +13,7 @@
  */
 
 #include <cups/cups-private.h>
+#include <cups/ippusb-private.h>
 #include <cups/ppd-private.h>
 
 
@@ -1210,10 +1211,35 @@ get_printer_ppd(
     return (NULL);
   }
 
-  http = httpConnect2(host, port, NULL, AF_UNSPEC, !strcmp(scheme, "ipps") ? HTTP_ENCRYPTION_ALWAYS : HTTP_ENCRYPTION_IF_REQUESTED, 1, 30000, NULL);
-  if (!http)
-  {
-    _cupsLangPrintf(stderr, _("%s: Unable to connect to \"%s:%d\": %s"), "lpadmin", host, port, cupsLastErrorString());
+  // If the scheme is ippusb then a query is sent to the ippusb_manager service
+  // to check if the printer is currently connected and get the name of the
+  // socket used for communication with the printer.
+  if (!strcmp(scheme, "ippusb")) {
+    int sock = open_ippusb_manager_socket();
+    char* response = query_ippusb_manager(sock, host);
+    _cupsLangPrintf(stderr, _("lpadmin: received response \"%s\""), response);
+
+    close(sock);
+
+    int ret = snprintf(host, sizeof(host), "/run/ippusb/%s", response);
+    if (ret < 0 || ret >= sizeof(host)) {
+      _cupsLangPrintf(stderr, _("lpadmin: Failed to overwrite host"));
+      _exit(1);
+    }
+
+    free(response);
+
+    // Wait a maximum of 3 seconds for the socket to be created.
+    wait_for_socket(host, 3);
+  }
+
+  http = httpConnect2(host, port, NULL, AF_UNSPEC,
+                      !strcmp(scheme, "ipps") ? HTTP_ENCRYPTION_ALWAYS
+                                              : HTTP_ENCRYPTION_IF_REQUESTED,
+                      1, 30000, NULL);
+  if (!http) {
+    _cupsLangPrintf(stderr, _("%s: Unable to connect to \"%s:%d\": %s"),
+                    "lpadmin", host, port, cupsLastErrorString());
     return (NULL);
   }
 
@@ -1222,8 +1248,28 @@ get_printer_ppd(
   */
 
   request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
-  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, uri);
+  if (!strcmp(scheme, "ippusb")) {
+    // Change the uri back to use the ipp scheme for communicating with the cups
+    // server and so that communications will be understood by the printer.
+    // We can't simply change the existing uri because we want lpadmin to save
+    // the printer in the system as "ippusb", but need the "ipp" scheme in
+    // |fixed_uri| in order to communicate with the printer.
+    char* fixed_uri = change_scheme(uri, "ipp");
+    if (!fixed_uri) {
+      _cupsLangPrintf(stderr, _("%s: Failed to change uri to %s"), "lpadmin",
+                      "ipp");
+      _exit(1);
+    }
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
+                 fixed_uri);
+    free(fixed_uri);
+  } else {
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
+                 uri);
+  }
+
   ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "requested-attributes", sizeof(pattrs) / sizeof(pattrs[0]), NULL, pattrs);
+
   response = cupsDoRequest(http, request, resource);
 
   if (cupsLastError() >= IPP_STATUS_REDIRECTION_OTHER_SITE)
@@ -1363,6 +1409,8 @@ set_printer_options(
     request = ippNewRequest(IPP_OP_CUPS_ADD_MODIFY_CLASS);
   else
     request = ippNewRequest(IPP_OP_CUPS_ADD_MODIFY_PRINTER);
+
+  _cupsLangPrintf(stderr, _("lpadmin: printer uri %s"), uri);
 
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, uri);
   ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "requesting-user-name", NULL, cupsUser());
