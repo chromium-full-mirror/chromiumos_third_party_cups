@@ -31,7 +31,7 @@ dnl For debugging, keep symbols, otherwise strip them...
 AS_IF([test x$enable_debug = xyes -a "x$OPTIM" = x], [
     OPTIM="-g"
 ], [
-    INSTALL_STRIP="-s"
+    INSTALL_STRIP=""
 ])
 
 dnl Debug printfs can slow things down, so provide a separate option for that
