@@ -1124,9 +1124,15 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
        filter;
        i ++, filter = (mime_filter_t *)cupsArrayNext(filters))
   {
-    if (filter->filter[0] != '/')
+    if (filter->filter[0] != '/') {
       snprintf(command, sizeof(command), "%s/filter/%s", ServerBin,
                filter->filter);
+      if (access(command, F_OK) != 0) {
+        _cupsSearchFilterLatest(filter->filter,
+                                command,
+                                sizeof(command));
+      }
+    }
     else
       strlcpy(command, filter->filter, sizeof(command));
 
