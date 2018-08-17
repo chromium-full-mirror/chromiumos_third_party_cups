@@ -373,7 +373,7 @@ apple_register_profiles(
   * Try opening the PPD file for this printer...
   */
 
-  snprintf(ppdfile, sizeof(ppdfile), "%s/ppd/%s.ppd", ServerRoot, p->name);
+  snprintf(ppdfile, sizeof(ppdfile), "%s/ppd/%s.ppd", PrinterRoot, p->name);
   if ((ppd = _ppdOpenFile(ppdfile, _PPD_LOCALIZATION_ICC_PROFILES)) == NULL)
     return;
 
@@ -1391,7 +1391,7 @@ colord_register_printer(
   * Try opening the PPD file for this printer...
   */
 
-  snprintf(ppdfile, sizeof(ppdfile), "%s/ppd/%s.ppd", ServerRoot, p->name);
+  snprintf(ppdfile, sizeof(ppdfile), "%s/ppd/%s.ppd", PrinterRoot, p->name);
   if ((ppd = _ppdOpenFile(ppdfile, _PPD_LOCALIZATION_ICC_PROFILES)) == NULL)
     return;
 

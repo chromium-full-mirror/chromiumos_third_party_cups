@@ -63,6 +63,8 @@ typedef struct _cups_globals_s		/**** CUPS global state data ****/
 			*cups_serverbin,/* CUPS_SERVERBIN environment var */
 			*cups_serverroot,
 					/* CUPS_SERVERROOT environment var */
+                        *cups_printerroot,
+                                        /* CUPS_PRINTERROOT enviornment var */
 			*cups_statedir,	/* CUPS_STATEDIR environment var */
 			*localedir;	/* LOCALDIR environment var */
 

@@ -1086,7 +1086,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		      char ppdname[1024];/* PPD filename */
 
 		      snprintf(ppdname, sizeof(ppdname), "%s/ppd/%s.ppd",
-		               ServerRoot, p->printers[i]->name);
+		               PrinterRoot, p->printers[i]->name);
 		      if (!access(ppdname, 0))
 		      {
 		        p = p->printers[i];
@@ -1146,7 +1146,7 @@ cupsdReadClient(cupsd_client_t *con)	/* I - Client to read from */
 		      char ppdname[1024];/* PPD filename */
 
 		      snprintf(ppdname, sizeof(ppdname), "%s/ppd/%s.ppd",
-		               ServerRoot, p->printers[i]->name);
+		               PrinterRoot, p->printers[i]->name);
 		      if (!access(ppdname, 0))
 		      {
 		        p = p->printers[i];
@@ -2980,7 +2980,7 @@ get_file(cupsd_client_t *con,		/* I  - Client connection */
       return (NULL);
     }
 
-    snprintf(filename, len, "%s%s", ServerRoot, con->uri);
+    snprintf(filename, len, "%s%s", PrinterRoot, con->uri);
 
     perm_check = 0;
   }

@@ -715,7 +715,7 @@ cupsdLoadAllSubscriptions(void)
   * Open the subscriptions.conf file...
   */
 
-  snprintf(line, sizeof(line), "%s/subscriptions.conf", ServerRoot);
+  snprintf(line, sizeof(line), "%s/subscriptions.conf", PrinterRoot);
   if ((fp = cupsdOpenConfFile(line)) == NULL)
     return;
 
@@ -1069,7 +1069,7 @@ cupsdSaveAllSubscriptions(void)
   * Create the subscriptions.conf file...
   */
 
-  snprintf(filename, sizeof(filename), "%s/subscriptions.conf", ServerRoot);
+  snprintf(filename, sizeof(filename), "%s/subscriptions.conf", PrinterRoot);
 
   if ((fp = cupsdCreateConfFile(filename, ConfigFilePerm)) == NULL)
     return;

@@ -98,6 +98,8 @@ VAR char		*ConfigurationFile	VALUE(NULL),
 					/* cupsd.conf file to use */
 			*CupsFilesFile		VALUE(NULL),
 					/* cups-files.conf file to use */
+			*PrinterRoot		VALUE(NULL),
+					/* Root directory for printer configs */
 			*ServerName		VALUE(NULL),
 					/* FQDN for server */
 			*ServerAdmin		VALUE(NULL),

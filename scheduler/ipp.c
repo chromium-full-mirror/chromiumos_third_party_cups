@@ -2677,7 +2677,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
 	return;
       }
 
-      snprintf(dstfile, sizeof(dstfile), "%s/ppd/%s.ppd", ServerRoot,
+      snprintf(dstfile, sizeof(dstfile), "%s/ppd/%s.ppd", PrinterRoot,
                printer->name);
 
      /*
@@ -2711,7 +2711,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
       * Raw driver, remove any existing PPD file.
       */
 
-      snprintf(dstfile, sizeof(dstfile), "%s/ppd/%s.ppd", ServerRoot, printer->name);
+      snprintf(dstfile, sizeof(dstfile), "%s/ppd/%s.ppd", PrinterRoot, printer->name);
       unlink(dstfile);
     }
     else if (strstr(ppd_name, "../"))
@@ -2728,7 +2728,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
       * PPD model file...
       */
 
-      snprintf(dstfile, sizeof(dstfile), "%s/ppd/%s.ppd", ServerRoot, printer->name);
+      snprintf(dstfile, sizeof(dstfile), "%s/ppd/%s.ppd", PrinterRoot, printer->name);
 
       if (copy_model(con, ppd_name, dstfile))
       {
@@ -2779,7 +2779,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
                     sizeof(scheme), username, sizeof(username), host,
 		    sizeof(host), &port, resource, sizeof(resource));
 
-    snprintf(srcfile, sizeof(srcfile), "%s/ppd/%s.ppd", ServerRoot,
+    snprintf(srcfile, sizeof(srcfile), "%s/ppd/%s.ppd", PrinterRoot,
 	     printer->name);
     if ((ppd = _ppdOpenFile(srcfile, _PPD_LOCALIZATION_NONE)) != NULL)
     {
@@ -6045,10 +6045,10 @@ delete_printer(cupsd_client_t  *con,	/* I - Client connection */
   * Remove any old PPD or script files...
   */
 
-  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", ServerRoot,
+  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", PrinterRoot,
            printer->name);
   unlink(filename);
-  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd.O", ServerRoot,
+  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd.O", PrinterRoot,
            printer->name);
   unlink(filename);
 
@@ -7133,7 +7133,7 @@ get_ppd(cupsd_client_t  *con,		/* I - Client connection */
     * See if we need the PPD for a class or remote printer...
     */
 
-    snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", ServerRoot, dest->name);
+    snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", PrinterRoot, dest->name);
 
     if ((dtype & CUPS_PRINTER_REMOTE) && access(filename, 0))
     {
@@ -7146,7 +7146,7 @@ get_ppd(cupsd_client_t  *con,		/* I - Client connection */
       for (i = 0; i < dest->num_printers; i ++)
         if (!(dest->printers[i]->type & CUPS_PRINTER_CLASS))
 	{
-	  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", ServerRoot, dest->printers[i]->name);
+	  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", PrinterRoot, dest->printers[i]->name);
 
           if (!access(filename, 0))
 	    break;
