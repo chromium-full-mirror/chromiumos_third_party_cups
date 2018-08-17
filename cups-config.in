@@ -24,6 +24,7 @@ sysconfdir=@sysconfdir@
 cups_datadir=@CUPS_DATADIR@
 cups_serverbin=@CUPS_SERVERBIN@
 cups_serverroot=@CUPS_SERVERROOT@
+cups_printerroot=@CUPS_PRINTERROOT@
 INSTALLSTATIC=@INSTALLSTATIC@
 
 # flags for compiler and linker...
@@ -60,6 +61,7 @@ usage ()
     echo "       cups-config [--image] [--static] --libs"
     echo "       cups-config --serverbin"
     echo "       cups-config --serverroot"
+    echo "       cups-config --printerroot"
     echo "       cups-config --version"
 
     exit $1
@@ -103,6 +105,9 @@ while test $# -gt 0; do
 	    fi
 	    echo $libs
 	    ;;
+        --printerroot)
+           echo $cups_printerroot
+           ;;
 	--serverbin)
 	    echo $cups_serverbin
 	    ;;

@@ -2732,7 +2732,7 @@ get_file(cupsd_client_t *con,		/* I  - Client connection */
       {
 	if (!(p->printers[i]->type & CUPS_PRINTER_CLASS))
 	{
-	  snprintf(filename, len, "%s/ppd/%s.ppd", ServerRoot, p->printers[i]->name);
+	  snprintf(filename, len, "%s/ppd/%s.ppd", PrinterRoot, p->printers[i]->name);
 	  if (!access(filename, 0))
 	  {
 	    p = p->printers[i];

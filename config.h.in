@@ -124,6 +124,7 @@
 #define CUPS_SBINDIR	"/usr/sbin"
 #define CUPS_SERVERBIN	"/usr/lib/cups"
 #define CUPS_SERVERROOT	"/etc/cups"
+#define CUPS_PRINTERROOT	CUPS_SERVERROOT
 #define CUPS_STATEDIR	"/var/run/cups"
 
 
