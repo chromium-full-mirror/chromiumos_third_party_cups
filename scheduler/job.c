@@ -626,12 +626,12 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
     * Figure out the final content type...
     */
 
-    cupsdLogJob(job, CUPSD_LOG_DEBUG, "%d filters for job:",
+    cupsdLogJob(job, CUPSD_LOG_NOTICE, "%d filters for job:",
                 cupsArrayCount(filters));
     for (filter = (mime_filter_t *)cupsArrayFirst(filters);
          filter;
          filter = (mime_filter_t *)cupsArrayNext(filters))
-      cupsdLogJob(job, CUPSD_LOG_DEBUG, "%s (%s/%s to %s/%s, cost %d)",
+      cupsdLogJob(job, CUPSD_LOG_NOTICE, "%s (%s/%s to %s/%s, cost %d)",
 		  filter->filter,
 		  filter->src ? filter->src->super : "???",
 		  filter->src ? filter->src->type : "???",
@@ -1212,8 +1212,8 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
       goto abort_job;
     }
 
-    cupsdLogJob(job, CUPSD_LOG_INFO, "Started filter %s (PID %d)", command,
-                pid);
+    cupsdLogJob(job, CUPSD_LOG_NOTICE, "Started filter %s (%s) (PID %d)",
+                command, options, pid);
 
     if (argv[6])
     {
@@ -1269,7 +1269,7 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
       }
       else
       {
-	cupsdLogJob(job, CUPSD_LOG_INFO, "Started backend %s (PID %d)",
+	cupsdLogJob(job, CUPSD_LOG_NOTICE, "Started backend %s (PID %d)",
 		    command, pid);
       }
     }

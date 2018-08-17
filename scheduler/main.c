@@ -1600,24 +1600,19 @@ process_children(void)
         int code = WEXITSTATUS(status);	/* Exit code */
 
         if (code > 100)
-	  cupsdLogJob(job, CUPSD_LOG_DEBUG,
+	  cupsdLogJob(job, CUPSD_LOG_NOTICE,
 		      "PID %d (%s) stopped with status %d (%s)", pid, name,
 		      code, strerror(code - 100));
 	else
-	  cupsdLogJob(job, CUPSD_LOG_DEBUG,
+	  cupsdLogJob(job, CUPSD_LOG_NOTICE,
 		      "PID %d (%s) stopped with status %d.", pid, name, code);
       }
       else
-	cupsdLogJob(job, CUPSD_LOG_DEBUG, "PID %d (%s) crashed on signal %d.",
+	cupsdLogJob(job, CUPSD_LOG_NOTICE, "PID %d (%s) crashed on signal %d.",
 		    pid, name, WTERMSIG(status));
-
-      if (LogLevel < CUPSD_LOG_DEBUG)
-        cupsdLogJob(job, CUPSD_LOG_INFO,
-		    "Hint: Try setting the LogLevel to \"debug\" to find out "
-		    "more.");
     }
     else
-      cupsdLogJob(job, CUPSD_LOG_DEBUG, "PID %d (%s) exited with no errors.",
+      cupsdLogJob(job, CUPSD_LOG_NOTICE, "PID %d (%s) exited with no errors.",
 		  pid, name);
   }
 
