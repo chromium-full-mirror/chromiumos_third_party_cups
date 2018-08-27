@@ -1360,6 +1360,66 @@ get_printer_type(http_t *http,		/* I - Server connection */
   return (type);
 }
 
+/*
+ * 'create_temp_file_with_content()' - Creates temporary file and write to it
+ *   whole content from given file descriptor. No seek operations are
+ *   performed on the input file, it is read to its end. Created temporary file
+ *   is seek to the beginning before return. The function returns a file
+ *   descriptor to the temporary file or value <0 in case of an error.
+ */
+static int create_temp_file_with_content(
+    int  fd_content)	/* a file with content to copy */
+{
+  FILE * ftmpfile;
+  int fd_tmp;
+  unsigned const buf_size = 4096;
+  uint8_t buf[buf_size];
+  size_t bytes_read;
+  size_t bytes_written;
+  size_t bytes_count;
+
+  if (fd_content < 0) {
+    return -1;
+  }
+
+  ftmpfile = tmpfile();
+  if (ftmpfile == NULL) {
+    return -2;
+  }
+  fd_tmp = fileno(ftmpfile);
+  if (fd_tmp < 0) {
+    return -3;
+  }
+
+  while (1) {
+    bytes_read = (size_t)read(fd_content, buf, buf_size);
+    if (bytes_read < 0) {
+      close(fd_tmp);
+      return -4;
+    }
+    if (bytes_read == 0) {
+      break;
+    }
+    bytes_written = 0;
+    while (bytes_read > bytes_written) {
+      bytes_count = (size_t)write(fd_tmp, buf + bytes_written,
+                                  bytes_read - bytes_written);
+      if (bytes_count < 0) {
+          close(fd_tmp);
+          return -5;
+      }
+      bytes_written += bytes_count;
+    }
+  }
+
+  if (lseek(fd_tmp, 0, SEEK_SET) < 0) {
+    close(fd_tmp);
+    return -6;
+  }
+
+  return fd_tmp;
+}
+
 
 /*
  * 'set_printer_options()' - Set the printer options.
@@ -1376,7 +1436,6 @@ set_printer_options(
 {
   ipp_t		*request;		/* IPP Request */
   const char	*ppdfile;		/* PPD filename */
-  int		ppdchanged = 0;		/* PPD changed? */
   ppd_file_t	*ppd;			/* PPD file */
   ppd_choice_t	*choice;		/* Marked choice */
   char		uri[HTTP_MAX_URI],	/* URI for printer/class */
@@ -1393,6 +1452,8 @@ set_printer_options(
   int		wrote_ipp_supplies = 0,	/* Wrote cupsIPPSupplies keyword? */
 		wrote_snmp_supplies = 0,/* Wrote cupsSNMPSupplies keyword? */
 		copied_options = 0;	/* Copied options? */
+  int fd_ppd_ppd;	/* Descriptor to file with PPD content for ppd_file_t  */
+  int fd_ppd_cups;	/* Descriptor to file with PPD content for cups_file_t */
 
 
  /*
@@ -1434,10 +1495,9 @@ set_printer_options(
       int i, num_temp = 0;
       for (i = num_options, optr = options; i > 0; i --, optr ++)
         if (strcmp(optr->name, "ppd-name"))
-	  num_temp = cupsAddOption(optr->name, optr->value, num_temp, &temp);
+          num_temp = cupsAddOption(optr->name, optr->value, num_temp, &temp);
 
       copied_options = 1;
-      ppdchanged     = 1;
       num_options    = num_temp;
       options        = temp;
     }
@@ -1469,30 +1529,55 @@ set_printer_options(
 
   if (ppdfile)
   {
+
    /*
-    * Set default options in the PPD file...
+    * Open tempfile
     */
-
-    if ((ppd = ppdOpenFile(ppdfile)) == NULL)
-    {
-      int		linenum;	/* Line number of error */
-      ppd_status_t	status = ppdLastError(&linenum);
-					/* Status code */
-
-      _cupsLangPrintf(stderr, _("lpadmin: Unable to open PPD \"%s\": %s on line %d."), ppdfile, ppdErrorString(status), linenum);
-      goto error;
-    }
-
-    ppdMarkDefaults(ppd);
-    cupsMarkOptions(ppd, num_options, options);
-
     if ((out = cupsTempFile2(tempfile, sizeof(tempfile))) == NULL)
     {
       _cupsLangPrintError(NULL, _("lpadmin: Unable to create temporary file"));
       goto error;
     }
 
-    if ((in = cupsFileOpen(ppdfile, "r")) == NULL)
+   /*
+    * Open PPD file (twice)
+    */
+    if (ppdfile[0] == '-' && ppdfile[1] == '\0') {
+      /* The content given on the input must be read twice from file
+       * descriptors. Moreover, the descriptors are closed at the end. To make
+       * it possible we have to create two temporary files with the copy of the
+       * content sent via standard input.
+       */
+      fd_ppd_ppd  = create_temp_file_with_content(STDIN_FILENO);
+      fd_ppd_cups = create_temp_file_with_content(fd_ppd_ppd);
+      if (fd_ppd_ppd < 0 || fd_ppd_cups < 0) {
+        _cupsLangPrintf(stderr, _("lpadmin: Cannot create temporary files."));
+        unlink(tempfile);
+        goto error;
+      }
+      if (lseek(fd_ppd_ppd, 0, SEEK_SET) < 0) {
+        _cupsLangPrintf(stderr, _("lpadmin: Temporary file: lseek failed"));
+        unlink(tempfile);
+        goto error;
+      }
+      ppd = ppdOpenFd(fd_ppd_ppd);
+      in = cupsFileOpenFd(fd_ppd_cups, "r");
+    } else {
+      /* The content is given as standard file, we just open it twice. */
+      ppd = ppdOpenFile(ppdfile);
+      in = cupsFileOpen(ppdfile, "r");
+    }
+
+    if (ppd == NULL)
+    {
+      int		linenum;	/* Line number of error */
+      ppd_status_t	status = ppdLastError(&linenum); 	/* Status code */
+      _cupsLangPrintf(stderr, _("lpadmin: Unable to open PPD \"%s\": %s on line %d."), ppdfile, ppdErrorString(status), linenum);
+      unlink(tempfile);
+      goto error;
+    }
+
+    if (in == NULL)
     {
       _cupsLangPrintf(stderr, _("lpadmin: Unable to open PPD \"%s\": %s"), ppdfile, strerror(errno));
       cupsFileClose(out);
@@ -1500,13 +1585,19 @@ set_printer_options(
       goto error;
     }
 
+    /*
+     * Set default options in the PPD file...
+     */
+    ppdMarkDefaults(ppd);
+    cupsMarkOptions(ppd, num_options, options);
+
+
     while (cupsFileGets(in, line, sizeof(line)))
     {
       if (!strncmp(line, "*cupsIPPSupplies:", 17) &&
 	  (boolval = cupsGetOption("cupsIPPSupplies", num_options,
 	                           options)) != NULL)
       {
-        ppdchanged         = 1;
         wrote_ipp_supplies = 1;
         cupsFilePrintf(out, "*cupsIPPSupplies: %s\n",
 	               (!_cups_strcasecmp(boolval, "true") ||
@@ -1517,7 +1608,6 @@ set_printer_options(
 	       (boolval = cupsGetOption("cupsSNMPSupplies", num_options,
 	                                options)) != NULL)
       {
-        ppdchanged          = 1;
         wrote_snmp_supplies = 1;
         cupsFilePrintf(out, "*cupsSNMPSupplies: %s\n",
 	               (!_cups_strcasecmp(boolval, "true") ||
@@ -1558,13 +1648,11 @@ set_printer_options(
 	  if (strcmp(choice->choice, "Custom"))
 	  {
 	    cupsFilePrintf(out, "*Default%s: %s\n", keyword, choice->choice);
-	    ppdchanged = 1;
 	  }
 	  else if ((customval = cupsGetOption(keyword, num_options,
 	                                      options)) != NULL)
 	  {
 	    cupsFilePrintf(out, "*Default%s: %s\n", keyword, customval);
-	    ppdchanged = 1;
 	  }
 	  else
 	    cupsFilePrintf(out, "%s\n", line);
@@ -1578,8 +1666,6 @@ set_printer_options(
 	(boolval = cupsGetOption("cupsIPPSupplies", num_options,
 				 options)) != NULL)
     {
-      ppdchanged = 1;
-
       cupsFilePrintf(out, "*cupsIPPSupplies: %s\n",
 		     (!_cups_strcasecmp(boolval, "true") ||
 		      !_cups_strcasecmp(boolval, "yes") ||
@@ -1590,8 +1676,6 @@ set_printer_options(
         (boolval = cupsGetOption("cupsSNMPSupplies", num_options,
 			         options)) != NULL)
     {
-      ppdchanged = 1;
-
       cupsFilePrintf(out, "*cupsSNMPSupplies: %s\n",
 		     (!_cups_strcasecmp(boolval, "true") ||
 		      !_cups_strcasecmp(boolval, "yes") ||
@@ -1606,7 +1690,7 @@ set_printer_options(
     * Do the request...
     */
 
-    ippDelete(cupsDoFileRequest(http, request, "/admin/", ppdchanged ? tempfile : file));
+    ippDelete(cupsDoFileRequest(http, request, "/admin/", tempfile));
 
    /*
     * Clean up temp files... (TODO: catch signals in case we CTRL-C during
