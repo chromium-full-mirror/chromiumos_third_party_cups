@@ -668,7 +668,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		    "[-i interface] [-m model]\n"
 		    "                       [-r remove-class] [-v device] "
 		    "[-D description]\n"
-		    "                       [-P ppd-file] [-o name=value]\n"
+		    "                       [-P ppd-file|-] [-o name=value]\n"
 		    "                       [-u allow:user,user] "
 		    "[-u deny:user,user]"));
   }
@@ -1368,6 +1368,65 @@ get_printer_type(http_t *http,		/* I - Server connection */
   return (type);
 }
 
+/*
+ * 'create_temp_file_with_content()' - Creates temporary file and write to it
+ *   whole content from given file descriptor. No seek operations are
+ *   performed on the input file, it is read to its end. Created temporary file
+ *   is seek to the beginning before return. The function returns a file
+ *   descriptor to the temporary file or value <0 in case of an error.
+ */
+static int create_temp_file_with_content(
+    int  fd_content)	/* a file with content to copy */
+{
+  FILE * ftmpfile;
+  int fd_tmp;
+  unsigned const buf_size = 4096;
+  uint8_t buf[buf_size];
+  ssize_t bytes_read;
+  ssize_t bytes_written;
+  ssize_t bytes_count;
+
+  if (fd_content < 0) {
+    return -1;
+  }
+
+  ftmpfile = tmpfile();
+  if (ftmpfile == NULL) {
+    return -2;
+  }
+  fd_tmp = fileno(ftmpfile);
+  if (fd_tmp < 0) {
+    return -3;
+  }
+
+  while (1) {
+    bytes_read = read(fd_content, buf, buf_size);
+    if (bytes_read < 0) {
+      close(fd_tmp);
+      return -4;
+    }
+    if (bytes_read == 0) {
+    	break;
+    }
+    bytes_written = 0;
+    while (bytes_read > bytes_written) {
+      bytes_count = write(fd_tmp, buf + bytes_written, bytes_read-bytes_written);
+      if (bytes_count < 0) {
+          close(fd_tmp);
+          return -5;
+      }
+      bytes_written += bytes_count;
+    }
+  }
+
+  if (lseek(fd_tmp, 0, SEEK_SET) < 0) {
+    close(fd_tmp);
+    return -6;
+  }
+
+  return fd_tmp;
+}
+
 
 /*
  * 'set_printer_options()' - Set the printer options.
@@ -1400,6 +1459,8 @@ set_printer_options(
   int		wrote_ipp_supplies = 0,	/* Wrote cupsIPPSupplies keyword? */
 		wrote_snmp_supplies = 0,/* Wrote cupsSNMPSupplies keyword? */
 		copied_options = 0;	/* Copied options? */
+  int fd_ppd_ppd;	/* Descriptor to file with PPD content for ppd_file_t  */
+  int fd_ppd_cups;	/* Descriptor to file with PPD content for cups_file_t */
 
 
   DEBUG_printf(("set_printer_options(http=%p, printer=\"%s\", num_options=%d, "
@@ -1473,22 +1534,10 @@ set_printer_options(
 
   if (ppdfile)
   {
+
    /*
-    * Set default options in the PPD file...
+    * Open tempfile
     */
-
-    if ((ppd = ppdOpenFile(ppdfile)) == NULL)
-    {
-      int		linenum;	/* Line number of error */
-      ppd_status_t	status = ppdLastError(&linenum);
-					/* Status code */
-
-      _cupsLangPrintf(stderr, _("lpadmin: Unable to open PPD \"%s\": %s on line %d."), ppdfile, ppdErrorString(status), linenum);
-    }
-
-    ppdMarkDefaults(ppd);
-    cupsMarkOptions(ppd, num_options, options);
-
     if ((out = cupsTempFile2(tempfile, sizeof(tempfile))) == NULL)
     {
       _cupsLangPrintError(NULL, _("lpadmin: Unable to create temporary file"));
@@ -1500,7 +1549,60 @@ set_printer_options(
       return (1);
     }
 
-    if ((in = cupsFileOpen(ppdfile, "r")) == NULL)
+   /*
+    * Open PPD file (twice)
+    */
+    if (ppdfile[0] == '-' && ppdfile[1] == '\0') {
+      /* The content given on the input must be read twice from file
+       * descriptors. Moreover, the descriptors are closed at the end. To make
+       * it possible we have to create two temporary files with the copy of the
+       * content sent via standard input.
+       */
+      fd_ppd_ppd  = create_temp_file_with_content(STDIN_FILENO);
+      fd_ppd_cups = create_temp_file_with_content(fd_ppd_ppd);
+      if (fd_ppd_ppd < 0 || fd_ppd_cups < 0) {
+        _cupsLangPrintf(stderr, _("lpadmin: Cannot create temporary files."));
+        ippDelete(request);
+        if (ppdfile != file)
+          unlink(ppdfile);
+        if (copied_options)
+          cupsFreeOptions(num_options, options);
+        unlink(tempfile);
+        return (1);
+      }
+      if (lseek(fd_ppd_ppd, 0, SEEK_SET) < 0) {
+        _cupsLangPrintf(stderr, _("lpadmin: Temporary file: lseek failed"));
+        ippDelete(request);
+        if (ppdfile != file)
+          unlink(ppdfile);
+        if (copied_options)
+          cupsFreeOptions(num_options, options);
+        unlink(tempfile);
+        return (1);
+      }
+      ppd = ppdOpenFd(fd_ppd_ppd);
+      in = cupsFileOpenFd(fd_ppd_cups, "r");
+    } else {
+      /* The content is given as standard file, we just open it twice. */
+      ppd = ppdOpenFile(ppdfile);
+      in = cupsFileOpen(ppdfile, "r");
+    }
+
+    if (ppd == NULL)
+    {
+      int		linenum;	/* Line number of error */
+      ppd_status_t	status = ppdLastError(&linenum); 	/* Status code */
+      _cupsLangPrintf(stderr, _("lpadmin: Unable to open PPD \"%s\": %s on line %d."), ppdfile, ppdErrorString(status), linenum);
+      ippDelete(request);
+      if (ppdfile != file)
+        unlink(ppdfile);
+      if (copied_options)
+        cupsFreeOptions(num_options, options);
+      unlink(tempfile);
+      return (1);
+    }
+
+    if (in == NULL)
     {
       _cupsLangPrintf(stderr,
                       _("lpadmin: Unable to open PPD file \"%s\" - %s"),
@@ -1514,6 +1616,13 @@ set_printer_options(
       unlink(tempfile);
       return (1);
     }
+
+    /*
+     * Set default options in the PPD file...
+     */
+    ppdMarkDefaults(ppd);
+    cupsMarkOptions(ppd, num_options, options);
+
 
     while (cupsFileGets(in, line, sizeof(line)))
     {
@@ -1615,8 +1724,7 @@ set_printer_options(
     * Do the request...
     */
 
-    ippDelete(cupsDoFileRequest(http, request, "/admin/",
-                                ppdchanged ? tempfile : file));
+    ippDelete(cupsDoFileRequest(http, request, "/admin/", tempfile));
 
    /*
     * Clean up temp files... (TODO: catch signals in case we CTRL-C during
