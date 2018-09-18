@@ -2651,6 +2651,19 @@ check_filters(ppd_file_t *ppd,		/* I - PPD file */
     }
     else if (strcmp(program, "-"))
     {
+      if (strchr(program, '/') || strchr(program, '.'))
+      {
+	if (!warn && !errors && !verbose)
+	  _cupsLangPuts(stdout, _(" FAIL"));
+
+	if (verbose >= 0)
+	  _cupsLangPrintf(stdout, _("      %s  %s %s contains '/' or '.'."),
+			  prefix, "cupsPreFilter", pathprog);
+
+	if (!warn)
+	  errors ++;
+      }
+
       if (program[0] == '/')
 	snprintf(pathprog, sizeof(pathprog), "%s%s", root, program);
       else
