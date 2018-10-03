@@ -96,6 +96,55 @@ cupsGetPPD2(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_DE
     return (NULL);
 }
 
+/*
+ * Copies the file |ppdname| to the file descriptor |fd|.
+ * Returns 0 if successful, returns 1 otherwise.
+ */
+static int
+copy_file(int fd, const char* ppdname) {
+  int read_fd = -1;
+  ssize_t bytes_copied = 0;
+  ssize_t bytes_written = 0;
+  size_t bytes_remaining = 0;
+  char buffer[HTTP_MAX_BUFFER];
+
+  read_fd = open(ppdname, O_RDONLY);
+  if (read_fd == -1)
+    return 1;
+
+  while(1)
+  {
+    bytes_copied = read(read_fd, buffer, HTTP_MAX_BUFFER);
+
+    if (bytes_copied == 0)
+      break;
+
+    if (bytes_copied < 0)
+    {
+      // read failure
+      close(read_fd);
+      return 1;
+    }
+
+    const char* buf = buffer;
+    bytes_remaining = (size_t)bytes_copied;
+    while (bytes_remaining > 0) {
+      bytes_written = write(fd, buf, bytes_remaining);
+      if (bytes_written < 0)
+      {
+        // Write failure
+        close(read_fd);
+        return 1;
+      }
+      // In the event of partial write, keep trying
+      bytes_remaining -= (size_t)bytes_written;
+      buf += bytes_written;
+    }
+  }
+
+  close(read_fd);
+  return 0;
+}
 
 /*
  * 'cupsGetPPD3()' - Get the PPD file for a printer on the specified
@@ -204,7 +253,7 @@ cupsGetPPD3(http_t     *http,		/* I  - HTTP connection or @code CUPS_HTTP_DEFAUL
 
         unlink(buffer);
 
-	if (symlink(ppdname, buffer) && errno != EEXIST)
+	if ((fd = open(buffer, O_CREAT | O_TRUNC | O_WRONLY | O_EXCL, 0600)) < 0)
         {
           _cupsSetError(IPP_STATUS_ERROR_INTERNAL, NULL, 0);
 
@@ -279,10 +328,10 @@ cupsGetPPD3(http_t     *http,		/* I  - HTTP connection or @code CUPS_HTTP_DEFAUL
 		   (unsigned long)curtime.tv_usec);
 
 	 /*
-	  * Try to make a symlink...
+	  * Try to open a temp file.
 	  */
 
-	  if (!symlink(ppdname, buffer))
+	  if ((fd = open(buffer, O_CREAT | O_TRUNC | O_WRONLY | O_EXCL, 0600)) >= 0)
 	    break;
 
 	  DEBUG_printf(("2cupsGetPPD3: Symlink \"%s\" to \"%s\" failed: %s", ppdname, buffer, strerror(errno)));
@@ -299,6 +348,11 @@ cupsGetPPD3(http_t     *http,		/* I  - HTTP connection or @code CUPS_HTTP_DEFAUL
 
 	  return (HTTP_STATUS_SERVER_ERROR);
 	}
+      }
+
+      if (copy_file(fd, ppdname) != 0) {
+        unlink(buffer);
+        return (HTTP_STATUS_SERVER_ERROR);
       }
 
       if (*modtime >= ppdinfo.st_mtime)
