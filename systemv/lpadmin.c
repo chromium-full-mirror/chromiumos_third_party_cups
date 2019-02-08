@@ -1180,12 +1180,6 @@ get_printer_ppd(
 		host[256],		/* Hostname */
 		resource[256];		/* Resource path */
   int		port;			/* Port number */
-  static const char * const pattrs[] =	/* Attributes to use */
-  {
-    "all",
-    "media-col-database"
-  };
-
 
  /*
   * Connect to the printer...
@@ -1269,7 +1263,10 @@ get_printer_ppd(
                  uri);
   }
 
+/* We do not use the command below because some printers cannot interpret this
+   field correctly and skip important parameters in the response.
   ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "requested-attributes", sizeof(pattrs) / sizeof(pattrs[0]), NULL, pattrs);
+ */
 
   response = cupsDoRequest(http, request, resource);
 
