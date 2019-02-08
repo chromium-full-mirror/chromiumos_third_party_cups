@@ -1282,7 +1282,10 @@ get_printer_ppd(
                  uri);
   }
 
+/* We do not use the command below because some printers cannot interpret this
+   field correctly and skip important parameters in the response.
   ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "requested-attributes", sizeof(pattrs) / sizeof(pattrs[0]), NULL, pattrs);
+*/
 
   response = cupsDoRequest(http, request, resource);
 
