@@ -778,6 +778,7 @@ main(int  argc,				/* I - Number of command-line args */
         _cupsLangPrintFilter(stderr, "ERROR",
                              _("The printer is not responding."));
         update_reasons(NULL, "-connecting-to-device");
+        update_reasons(NULL, "+timed-out");
         return (CUPS_BACKEND_FAILED);
       }
 
@@ -988,6 +989,8 @@ main(int  argc,				/* I - Number of command-line args */
 	{
 	  _cupsLangPrintFilter(stderr, "ERROR",
 	                       _("The printer is not responding."));
+          update_reasons(NULL, "-connecting-to-device");
+          update_reasons(NULL, "+timed-out");
 	  return (CUPS_BACKEND_FAILED);
 	}
 
