@@ -3598,7 +3598,7 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	    char        *title,		/* I - Title buffer */
 	    size_t      title_size)	/* I - Size of title buffer */
 {
-  int			i, j;		/* Looping vars */
+  int			i;		/* Looping var */
   size_t		newlength;	/* New option buffer length */
   char			*optptr,	/* Pointer to options */
 			*valptr;	/* Pointer in value string */
@@ -3985,17 +3985,6 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	      break;
 
           case IPP_TAG_STRING :
-	      j = attr->values[i].unknown.length;
-	      for (valptr = attr->values[i].unknown.data; j > 0; j --)
-	      {
-	        if (strchr(" \t\n\\\'\"", *valptr))
-		  *optptr++ = '\\';
-		*optptr++ = *valptr++;
-	      }
-
-	      *optptr = '\0';
-	      break;
-
 	  case IPP_TAG_TEXT :
 	  case IPP_TAG_NAME :
 	  case IPP_TAG_KEYWORD :
