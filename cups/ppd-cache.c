@@ -3053,6 +3053,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 			*model,		/* Model name */
 			ppdname[PPD_MAX_NAME];
 		    			/* PPD keyword */
+  const char		*make_and_model;		/* Make and model (temp) */
   int			i, j,		/* Looping vars */
 			count,		/* Number of values */
 			bottom,		/* Largest bottom margin */
@@ -3126,10 +3127,11 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   cupsFilePuts(fp, "*FileSystem: False\n");
   cupsFilePuts(fp, "*PCFileName: \"ippeve.ppd\"\n");
 
+  make_and_model = NULL;
   if ((attr = ippFindAttribute(response, "printer-make-and-model", IPP_TAG_TEXT)) != NULL)
-    strlcpy(make, ippGetString(attr, 0, NULL), sizeof(make));
-  else
-    strlcpy(make, "Unknown Printer", sizeof(make));
+    make_and_model = ippGetString(attr, 0, NULL);
+
+  strlcpy(make, make_and_model ? make_and_model : "Unknown Printer", sizeof(make));
 
   if (!_cups_strncasecmp(make, "Hewlett Packard ", 16) ||
       !_cups_strncasecmp(make, "Hewlett-Packard ", 16))
