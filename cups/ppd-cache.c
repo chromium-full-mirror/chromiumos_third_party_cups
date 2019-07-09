@@ -23,6 +23,18 @@
 
 #define _PWG_EQUIVALENT(x, y)	(abs((x)-(y)) < 2)
 
+/*
+ * It's not uncommon to encounter PPDs describing media dimensions with
+ * integral values; calling _pwgMediaNearSize() with epsilon == 0 is too
+ * strict to deal with this lack of precision. We select an epsilon of
+ * 1mm to allow for almost 3 points of slack, especially because we
+ * serve a lot of PPDs that contain ~2 points of error.
+ *
+ * See also: https://crbug.com/920295#c20
+ *
+ * (100pwgu)(1in/2540pwgu)(72pt/1in) == 2.835 points.
+ */
+#define CROS_PWG_EPSILON 100
 
 /*
  * Local functions...
@@ -38,7 +50,15 @@ static void	pwg_free_finishings(_pwg_finishings_t *f);
 static void	pwg_ppdize_name(const char *ipp, char *name, size_t namesize);
 static void	pwg_ppdize_resolution(ipp_attribute_t *attr, int element, int *xres, int *yres, char *name, size_t namesize);
 static void	pwg_unppdize_name(const char *ppd, char *name, size_t namesize,
-		                  const char *dashchars);
+		                  const char *dashchars, int exempt_x_dot);
+static void     pwg_destroy_size_trackers(struct pwg_media_size_tracker_s *trackers,
+                                       int trackers_length);
+static int      pwg_fill_size_trackers(const ppd_file_t *ppd,
+                                       struct pwg_media_size_tracker_s *trackers,
+                                       int trackers_length);
+static int      pwg_find_size_tracker(const char *media_name,
+                                      const struct pwg_media_size_tracker_s *trackers,
+                                      int trackers_length);
 
 
 /*
@@ -986,7 +1006,7 @@ _ppdCacheCreateWithFile(
 _ppd_cache_t *				/* O - PPD cache and mapping data */
 _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 {
-  int			i, j, k;	/* Looping vars */
+  int			i, j;		/* Looping vars */
   _ppd_cache_t		*pc;		/* PWG mapping data */
   ppd_option_t		*input_slot,	/* InputSlot option */
 			*media_type,	/* MediaType option */
@@ -1011,24 +1031,22 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 					/* print-color-mode index */
   _pwg_print_quality_t	pwg_print_quality;
 					/* print-quality index */
-  int			similar;	/* Are the old and new size similar? */
-  pwg_size_t		*old_size;	/* Current old size */
-  int			old_imageable,	/* Old imageable length in 2540ths */
-			old_borderless,	/* Old borderless state */
-			old_known_pwg;	/* Old PWG name is well-known */
   int			new_width,	/* New width in 2540ths */
 			new_length,	/* New length in 2540ths */
 			new_left,	/* New left margin in 2540ths */
 			new_bottom,	/* New bottom margin in 2540ths */
 			new_right,	/* New right margin in 2540ths */
-			new_top,	/* New top margin in 2540ths */
-			new_imageable,	/* New imageable length in 2540ths */
-			new_borderless,	/* New borderless state */
-			new_known_pwg;	/* New PWG name is well-known */
+			new_top;	/* New top margin in 2540ths */
   pwg_size_t		*new_size;	/* New size to add, if any */
   const char		*filter;	/* Current filter */
   _pwg_finishings_t	*finishings;	/* Current finishings value */
   char			msg_id[256];	/* Message identifier */
+  struct pwg_media_size_tracker_s *trackers;
+                                        /* Tracker for canonical PWG names */
+  int                   num_trackers,   /* Number of trackers */
+                        finder_index,   /* Finder's place in the array */
+                        media_is_canonical;
+                                        /* Whether finder bears the true name */
 
 
   DEBUG_printf(("_ppdCacheCreateWithPPD(ppd=%p)", ppd));
@@ -1043,6 +1061,13 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
  /*
   * Allocate memory...
   */
+
+  /*
+   * Initialize these in case we need to jump to create_error. We need
+   * sane values when freeing the trackers array.
+   */
+  trackers = NULL;
+  num_trackers = 0;
 
   if ((pc = calloc(1, sizeof(_ppd_cache_t))) == NULL)
   {
@@ -1065,6 +1090,23 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
       goto create_error;
     }
 
+    num_trackers = ppd->num_sizes;
+    /*
+     * Should be safe to cast given that ppd->num_sizes > 0.
+     */
+    if ((trackers = calloc((size_t) num_trackers,
+                           sizeof(struct pwg_media_size_tracker_s))) == NULL)
+    {
+      DEBUG_printf(("_ppdCacheCreateWithPPD: Unable to allocate %d "
+		    "pwg_media_size_tracker_s's.", num_trackers));
+      goto create_error;
+    }
+    if (pwg_fill_size_trackers(ppd, trackers, num_trackers) < 0)
+    {
+      DEBUG_puts("_ppdCacheCreateWithPPD: Unable to fill trackers array.");
+      goto create_error;
+    }
+
     for (i = ppd->num_sizes, pwg_size = pc->sizes, ppd_size = ppd->sizes;
 	 i > 0;
 	 i --, ppd_size ++)
@@ -1078,58 +1120,85 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 
      /*
       * Convert the PPD size name to the corresponding PWG keyword name.
-      */
-
-      if ((pwg_media = pwgMediaForSize(PWG_FROM_POINTS(ppd_size->width), PWG_FROM_POINTS(ppd_size->length))) != NULL)
-      {
-       /*
-	* Standard name, do we have conflicts?
-	*/
-
-	for (j = 0; j < pc->num_sizes; j ++)
-	  if (!strcmp(pc->sizes[j].map.pwg, pwg_media->pwg))
-	  {
-	    pwg_media = NULL;
-	    break;
-	  }
-      }
-
-      if (pwg_media)
-      {
-       /*
-	* Standard name and no conflicts, use it!
-	*/
-
-	pwg_name      = pwg_media->pwg;
-	new_known_pwg = 1;
-      }
-      else
-      {
-       /*
-	* Not a standard name; convert it to a PWG vendor name of the form:
-	*
-	*     pp_lowerppd_WIDTHxHEIGHTuu
-	*/
-
-	pwg_name      = pwg_keyword;
-	new_known_pwg = 0;
-
-	pwg_unppdize_name(ppd_size->name, ppd_name, sizeof(ppd_name), "_.");
-	pwgFormatSizeName(pwg_keyword, sizeof(pwg_keyword), NULL, ppd_name,
-			  PWG_FROM_POINTS(ppd_size->width),
-			  PWG_FROM_POINTS(ppd_size->length), NULL);
-      }
-
-     /*
-      * If we have a similar paper with non-zero margins then we only want to
-      * keep it if it has a larger imageable area length.  The NULL check is for
-      * dimensions that are <= 0...
+      * The NULL check catches negative dimensions.
       */
 
       if ((pwg_media = _pwgMediaNearSize(PWG_FROM_POINTS(ppd_size->width),
 					PWG_FROM_POINTS(ppd_size->length),
-					0)) == NULL)
-	continue;
+					CROS_PWG_EPSILON)) == NULL)
+      {
+        continue;
+      }
+
+      /*
+       * If it's a standard media, we need to ensure that it's not
+       * hiding elsewhere in the PPD sizes under different names. We
+       * resolve such collisions by picking a single winning canonical
+       * entry and blessing it with the canonical PWG vendor ID. All
+       * others settle for a custom name of the form
+       *     pp_lowerppd_WIDTHxHEIGHTuu
+       *
+       * If it's a custom name, we re-customize it into the same form.
+       * (We need to respin it because _pwgMediaNearSize() has a
+       * slightly different form of name customization.)
+       */
+      finder_index = pwg_find_size_tracker(pwg_media->pwg,
+                                           trackers, num_trackers);
+      media_is_canonical = finder_index < 0
+          ? 0
+          : (trackers + finder_index)->index == ppd->num_sizes - i;
+      if (!_cups_strncasecmp(pwg_media->pwg, "custom", 6)
+          || !media_is_canonical)
+      {
+        pwg_name = pwg_keyword;
+
+        /*
+         * It's common to see PPDs specify media names with dimensions
+         * - e.g. <num>x<num> - embedded. This is a case where we
+         * generally prefer that pwg_unppdize_name() not add a dash
+         * separating the char "x" from the latter <num>.
+         *
+         * Our other deviation from upstream behavior (not replacing
+         * dots) is motivated by the weird vendor IDs that ensue
+         * otherwise - e.g. "om_12--6x19--2_319.97x487.54mm,"
+         * "om_12.-6x18.-5_319.97x469.9mm."
+         */
+        pwg_unppdize_name(ppd_size->name, ppd_name, sizeof(ppd_name), "_", 1);
+        pwgFormatSizeName(pwg_keyword, sizeof(pwg_keyword), NULL, ppd_name,
+                          PWG_FROM_POINTS(ppd_size->width),
+                          PWG_FROM_POINTS(ppd_size->length), NULL);
+      }
+      else
+      {
+        pwg_name = pwg_media->pwg;
+      }
+
+     /*
+      * Standard name, do we have conflicts?
+      *
+      * The pwg_media_size_tracker_s manipulations above are intended
+      * to help ensure all media names we want to store in our PPD cache
+      * are unique. If we somehow find a collision, we nullify our
+      * pwg_media finding to signal the same.
+      */
+
+      for (j = 0; j < pc->num_sizes; j ++)
+        if (!strcmp(pc->sizes[j].map.pwg, pwg_name))
+        {
+          pwg_media = NULL;
+          break;
+        }
+
+      if (!pwg_media)
+      {
+        /*
+         * If the above deduplication step nullified pwg_media, this
+         * indicates a media name collision in our PPD cache. This is
+         * an irrecoverable logic error from which we cannot recover;
+         * the best option is to drop this media.
+         */
+        continue;
+      }
 
       new_width      = pwg_media->width;
       new_length     = pwg_media->length;
@@ -1137,66 +1206,25 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
       new_bottom     = PWG_FROM_POINTS(ppd_size->bottom);
       new_right      = PWG_FROM_POINTS(ppd_size->width - ppd_size->right);
       new_top        = PWG_FROM_POINTS(ppd_size->length - ppd_size->top);
-      new_imageable  = new_length - new_top - new_bottom;
-      new_borderless = new_bottom == 0 && new_top == 0 &&
-		       new_left == 0 && new_right == 0;
 
-      for (k = pc->num_sizes, similar = 0, old_size = pc->sizes, new_size = NULL;
-	   k > 0 && !similar;
-	   k --, old_size ++)
-      {
-	old_imageable  = old_size->length - old_size->top - old_size->bottom;
-	old_borderless = old_size->left == 0 && old_size->bottom == 0 &&
-			 old_size->right == 0 && old_size->top == 0;
-	old_known_pwg  = strncmp(old_size->map.pwg, "oe_", 3) &&
-			 strncmp(old_size->map.pwg, "om_", 3);
+      new_size = pwg_size ++;
+      pc->num_sizes ++;
 
-	similar = old_borderless == new_borderless &&
-		  _PWG_EQUIVALENT(old_size->width, new_width) &&
-		  _PWG_EQUIVALENT(old_size->length, new_length);
+     /*
+      * Save this size...
+      */
 
-	if (similar &&
-	    (new_known_pwg || (!old_known_pwg && new_imageable > old_imageable)))
-	{
-	 /*
-	  * The new paper has a larger imageable area so it could replace
-	  * the older paper.  Regardless of the imageable area, we always
-	  * prefer the size with a well-known PWG name.
-	  */
-
-	  new_size = old_size;
-	  free(old_size->map.ppd);
-	  free(old_size->map.pwg);
-	}
-      }
-
-      if (!similar)
-      {
-       /*
-	* The paper was unique enough to deserve its own entry so add it to the
-	* end.
-	*/
-
-	new_size = pwg_size ++;
-	pc->num_sizes ++;
-      }
-
-      if (new_size)
-      {
-       /*
-	* Save this size...
-	*/
-
-	new_size->map.ppd = strdup(ppd_size->name);
-	new_size->map.pwg = strdup(pwg_name);
-	new_size->width   = new_width;
-	new_size->length  = new_length;
-	new_size->left    = new_left;
-	new_size->bottom  = new_bottom;
-	new_size->right   = new_right;
-	new_size->top     = new_top;
-      }
+      new_size->map.ppd = strdup(ppd_size->name);
+      new_size->map.pwg = strdup(pwg_name);
+      new_size->width   = new_width;
+      new_size->length  = new_length;
+      new_size->left    = new_left;
+      new_size->bottom  = new_bottom;
+      new_size->right   = new_right;
+      new_size->top     = new_top;
     }
+    pwg_destroy_size_trackers(trackers, num_trackers);
+    trackers = NULL;
   }
 
   if (ppd->variable_sizes)
@@ -1283,7 +1311,7 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 
         pwg_name = pwg_keyword;
 	pwg_unppdize_name(choice->choice, pwg_keyword, sizeof(pwg_keyword),
-	                  "_");
+	                  "_", 0);
       }
 
       map->pwg = strdup(pwg_name);
@@ -1354,7 +1382,7 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 
         pwg_name = pwg_keyword;
 	pwg_unppdize_name(choice->choice, pwg_keyword, sizeof(pwg_keyword),
-	                  "_");
+	                  "_", 0);
       }
 
       map->pwg = strdup(pwg_name);
@@ -1389,7 +1417,7 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 	 i > 0;
 	 i --, choice ++, map ++)
     {
-      pwg_unppdize_name(choice->choice, pwg_keyword, sizeof(pwg_keyword), "_");
+      pwg_unppdize_name(choice->choice, pwg_keyword, sizeof(pwg_keyword), "_", 0);
 
       map->pwg = strdup(pwg_keyword);
       map->ppd = strdup(choice->choice);
@@ -1957,6 +1985,7 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
   create_error:
 
   _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Out of memory."), 1);
+  pwg_destroy_size_trackers(trackers, num_trackers);
   _ppdCacheDestroy(pc);
 
   return (NULL);
@@ -5172,7 +5201,9 @@ static void
 pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
 		  char       *name,	/* I - Name buffer */
                   size_t     namesize,	/* I - Size of name buffer */
-                  const char *dashchars)/* I - Characters to be replaced by dashes */
+                  const char *dashchars,/* I - Characters to be replaced by dashes */
+                  const int exempt_x_dot)
+                                        /* I - whether to dash-separate [x.][0-9] */
 {
   char	*ptr,				/* Pointer into name buffer */
 	*end;				/* End of name buffer */
@@ -5206,12 +5237,187 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
     else
       *ptr++ = *ppd;
 
+    /*
+     * We might be looking at the end of our allotted rope. Break out
+     * early and lay down the NUL byte if we are.
+     */
+    if (ptr == end)
+    {
+      break;
+    }
     if (!_cups_isupper(*ppd) && _cups_isalnum(*ppd) &&
-	_cups_isupper(ppd[1]) && ptr < end)
+	_cups_isupper(ppd[1]))
       *ptr++ = '-';
     else if (!isdigit(*ppd & 255) && isdigit(ppd[1] & 255))
-      *ptr++ = '-';
+    {
+      if (!exempt_x_dot && (*ppd == 'x' || *ppd == '.'))
+      {
+        *ptr++ = '-';
+      }
+    }
   }
 
   *ptr = '\0';
+}
+
+/*
+ * 'pwg_destroy_size_trackers()' - Frees a previously allocated array of
+ *                                 pwg_media_size_tracker_s and all its
+ *                                 contents.
+ */
+static void
+pwg_destroy_size_trackers(
+    struct pwg_media_size_tracker_s *trackers,  /* I - trackers */
+    const int length)                           /* I - array length */
+{
+  struct pwg_media_size_tracker_s *tracker;
+
+  if (trackers && length) {
+    for (size_t i=0; i < length; ++i) {
+      tracker = &trackers[i];
+      if (tracker->name) {
+        free(tracker->name);
+        tracker->name = NULL;
+      } else {
+        /*
+         * We allocate as many trackers as there are sizes in the PPD.
+         * The tracker is only meant to store canonical PWG sizes, so
+         * if a PPD contains a nonzero number of custom sizes, the
+         * tracker will not be filled to capacity. If it's not filled
+         * to capacity, we bounce into this clause, and we can be sure
+         * that no allocated name members in need of freeing exist
+         * beyond this index.
+         */
+        break;
+      }
+    }
+    free(trackers);
+  }
+}
+
+/*
+ * 'pwg_fill_size_trackers()' - Given an array of PPD sizes, fills the
+ *                              array of PWG media trackers to denote
+ *                              the indices of canonical media names
+ *                              (if applicable).
+ *
+ * If a media size is named exactly for its PWG canonical name in
+ * the PPD, we want to honor that. All other names of the same
+ * physical media in the PPD shall be given custom names.
+ *
+ * Given these PaperDimensions (not properly formatted):
+ * *  Postcard 200.6mmx148.6mm
+ * *  Hagaki 200.4mmx148.4mm
+ * *  Hagaky 200mmx148mm
+ * "Hagaki," being the canonical PWG name, will have its index recorded
+ * in the trackers array. This hints to the caller that it should favor
+ * "Hagaki" when determining which of these 3 to assign the canonical
+ * PWG vendor ID.
+ *
+ * Given these PaperDimensions:
+ * *  Postcard 200.6mmx148.6mm
+ * *  Hagaaaki 200.4mmx148.4mm
+ * *  Hagak 200mmx148mm
+ * None of these match (char-for-char) the canonical PWG name, so this
+ * function will record an arbitrary index to indicate who should get
+ * assigned the canonical PWG vendor ID. By fiat, we select the first.
+ */
+static int                                      /* O - 0 if successful */
+pwg_fill_size_trackers(
+    const ppd_file_t *ppd,                      /* I - PPD */
+    struct pwg_media_size_tracker_s *trackers,  /* I - trackers */
+    const int trackers_length)                  /* I - array length */
+{
+  int j = 0;
+  pwg_media_t *pwg_media;
+  ppd_size_t *ppd_size;
+  struct pwg_media_size_tracker_s *last_tracker = trackers;
+
+  /*
+   * This is an implementation detail but an important logical check.
+   */
+  if (trackers_length != ppd->num_sizes) { return -1; }
+
+  for (int i = 0; i < trackers_length; ++i)
+  {
+    ppd_size = ppd->sizes + i;
+    /*
+     * The greater body of code creating the PPD cache skips over such
+     * names; we follow their lead here.
+     */
+    if (!_cups_strcasecmp(ppd_size->name, "Custom")) { continue; }
+    /*
+     * ATOW, _pwgMediaNearSize() only returns NULL if it encounters
+     * invalid media dimensions. It can also return custom sizes in
+     * which we take no interest.
+     */
+    if ((pwg_media = _pwgMediaNearSize(PWG_FROM_POINTS(ppd_size->width),
+                                       PWG_FROM_POINTS(ppd_size->length),
+                                       CROS_PWG_EPSILON))
+        == NULL || !_cups_strncasecmp(pwg_media->pwg, "custom", 6))
+    {
+      continue;
+    }
+
+    /*
+     * Okay, we have what looks like a regular PWG vendor ID. If we
+     * don't already track it, we do so.
+     */
+    if ((j = pwg_find_size_tracker(pwg_media->pwg,
+                                   trackers, trackers_length)) < 0)
+    {
+      if ((last_tracker->name = calloc(strlen(pwg_media->pwg) + 1, 1))
+          == NULL) {
+        return -2;
+      }
+      strncpy(last_tracker->name, pwg_media->pwg, strlen(pwg_media->pwg) + 1);
+      last_tracker->index = i;
+      j = pwg_find_size_tracker(pwg_media->pwg, trackers, trackers_length);
+      ++last_tracker;
+    }
+    if (j < 0)
+    {
+      /*
+       * This would indicate a logic error.
+       */
+      return -3;
+    }
+
+    /*
+     * The moment of truth - if the present PPD media maps exactly to
+     * the PWG vendor ID, we bless the present PPD media with that
+     * vendor ID.
+     */
+    if ((pwg_media = pwgMediaForPPD(ppd_size->name)) != NULL
+        && !strcmp(pwg_media->pwg, (trackers + j)->name))
+    {
+      (trackers + j)->index = i;
+    }
+  }
+  return 0;
+}
+
+/*
+ * 'pwg_find_size_tracker()' - given an array of trackers, return the
+ *                             index of the tracker bearing the given
+ *                             name.
+ */
+static int                                            /* O - found index */
+pwg_find_size_tracker(
+    const char *media_name,                           /* I - name to find */
+    const struct pwg_media_size_tracker_s *trackers,  /* I - trackers */
+    const int trackers_length)                        /* I - array length */
+{
+  const struct pwg_media_size_tracker_s *tracker;
+
+  for (int i = 0; i < trackers_length; ++i)
+  {
+    tracker = trackers + i;
+    if (!tracker->name) { break; }
+    if (!strcmp(media_name, tracker->name)) {
+      return i;
+    }
+  }
+
+  return -1;
 }
