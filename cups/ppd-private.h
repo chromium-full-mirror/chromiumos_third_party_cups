@@ -151,6 +151,11 @@ struct _ppd_cache_s			/**** PPD cache and PWG conversion data ****/
   cups_array_t	*support_files;		/* Support files - ICC profiles, etc. */
 };
 
+struct pwg_media_size_tracker_s /**** Media size tracker ****/
+{
+  char *name; /* this PWG media name */
+  int index;  /* best index of this media */
+};
 
 /*
  * Prototypes...
