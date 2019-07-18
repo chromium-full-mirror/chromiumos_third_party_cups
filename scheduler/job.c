@@ -13,6 +13,7 @@
  */
 
 #include "cupsd.h"
+#include "mime.h"
 #include <grp.h>
 #include <cups/backend.h>
 #include <cups/dir.h>
@@ -514,6 +515,7 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
 					/* Job title string */
 			copies[255],	/* # copies string */
 			*options,	/* Options string */
+			*log_options,   /* Options string for logging */
 			*envp[MAX_ENV + 21],
 					/* Environment variables */
 			charset[255],	/* CHARSET env variable */
@@ -1119,6 +1121,61 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
   * Now create processes for all of the filters...
   */
 
+  /*
+   * In order to skip logging the document-name-supplied attribute, we
+   * temporarily set the attribute in |job| to be empty before creating the
+   * log_options string.
+   */
+  ipp_attribute_t *document_name_supplied_attr =
+      ippFindAttribute(job->attrs, "document-name-supplied", IPP_TAG_NAME);
+  /* Holds the original value of the document-name-supplied attribute. */
+  char *document_name = NULL;
+  if (document_name_supplied_attr) {
+    const char *attr_value = ippGetString(document_name_supplied_attr, 0, NULL);
+    if (!attr_value) {
+      abort_message =
+          "Failed to get value for 'document-name-supplied' attribute";
+      goto abort_job;
+    }
+    document_name = malloc(strlen(attr_value) + 1);
+    strcpy(document_name, ippGetString(document_name_supplied_attr, 0, NULL));
+    if (!ippSetString(job->attrs, &document_name_supplied_attr, 0,
+                      "placeholder_filename")) {
+      abort_message =
+          "Failed to assign placeholder value to 'document-name-supplied' "
+          "attribute";
+      goto abort_job;
+    }
+  }
+
+  /*
+   * Load the logging version of the options string which omits the
+   * document-name-supplied field.
+   */
+  if ((log_options = get_options(job, banner_page, copies, sizeof(copies),
+                                 title, sizeof(title))) == NULL) {
+    abort_message = "Stopping job because the scheduler ran out of memory.";
+    goto abort_job;
+  }
+
+  /*
+   * Place the original document-name-supplied value back in the job object
+   * and free |document_name| as it's no longer needed.
+   */
+  if (document_name_supplied_attr) {
+    if (!ippSetString(job->attrs, &document_name_supplied_attr, 0,
+                     document_name)) {
+      abort_message =
+          "Failed to assign original value to 'document-name-supplied' "
+          "attribute";
+      goto abort_job;
+    }
+    if (document_name != NULL) {
+      free(document_name);
+      document_name = NULL;
+    }
+  }
+
   for (i = 0, slot = 0, filter = (mime_filter_t *)cupsArrayFirst(filters);
        filter;
        i ++, filter = (mime_filter_t *)cupsArrayNext(filters))
@@ -1218,7 +1275,7 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
     }
 
     cupsdLogJob(job, CUPSD_LOG_NOTICE, "Started filter %s (%s) (PID %d)",
-                command, options, pid);
+                command, log_options, pid);
 
     if (argv[6])
     {
@@ -1228,6 +1285,10 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
 
     slot = !slot;
   }
+
+  /* Free log_options as it's no longer needed. */
+  free(log_options);
+  log_options = NULL;
 
   cupsArrayDelete(filters);
   filters = NULL;
@@ -3637,7 +3698,6 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	    size_t      title_size)	/* I - Size of title buffer */
 {
   int			i;		/* Looping var */
-  size_t		newlength;	/* New option buffer length */
   char			*optptr,	/* Pointer to options */
 			*valptr;	/* Pointer in value string */
   ipp_attribute_t	*attr;		/* Current attribute */
@@ -3651,8 +3711,8 @@ get_options(cupsd_job_t *job,		/* I - Job */
 			print_quality;	/* Print quality (if any) */
   const char		*ppd;		/* PPD option choice */
   int			exact;		/* Did we get an exact match? */
-  static char		*options = NULL;/* Full list of options */
-  static size_t		optlength = 0;	/* Length of option buffer */
+  char			*options = NULL;/* Full list of options */
+  size_t		optlength = 0;	/* Length of option buffer */
 
 
  /*
@@ -3872,36 +3932,25 @@ get_options(cupsd_job_t *job,		/* I - Job */
   * Figure out how much room we need...
   */
 
-  newlength = ipp_length(job->attrs);
+  optlength = ipp_length(job->attrs);
 
   for (i = num_pwgppds, pwgppd = pwgppds; i > 0; i --, pwgppd ++)
-    newlength += 1 + strlen(pwgppd->name) + 1 + strlen(pwgppd->value);
+    optlength += 1 + strlen(pwgppd->name) + 1 + strlen(pwgppd->value);
 
  /*
   * Then allocate/reallocate the option buffer as needed...
   */
 
-  if (newlength == 0)			/* This can never happen, but Clang */
-    newlength = 1;			/* thinks it can... */
+  optptr = malloc(optlength);
 
-  if (newlength > optlength || !options)
-  {
-    if (!options)
-      optptr = malloc(newlength);
-    else
-      optptr = realloc(options, newlength);
-
-    if (!optptr)
-    {
-      cupsdLogJob(job, CUPSD_LOG_CRIT,
-		  "Unable to allocate " CUPS_LLFMT " bytes for option buffer.",
-		  CUPS_LLCAST newlength);
-      return (NULL);
-    }
-
-    options   = optptr;
-    optlength = newlength;
+  if (!optptr) {
+    cupsdLogJob(job, CUPSD_LOG_CRIT,
+                "Unable to allocate " CUPS_LLFMT " bytes for option buffer.",
+                CUPS_LLCAST optlength);
+    return (NULL);
   }
+
+  options = optptr;
 
  /*
   * Now loop through the attributes and convert them to the textual
