@@ -176,7 +176,7 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
   */
 
   waiteof    = 1;
-  contimeout = 7 * 24 * 60 * 60;
+  contimeout = CROS_PRINTER_CONNECT_TIMEOUT;
 
   if ((options = strchr(resource, '?')) != NULL)
   {
@@ -332,10 +332,12 @@ main(int  argc,				/* I - Number of command-line arguments (6 or 7) */
 
       if (errno == ECONNREFUSED || errno == EHOSTDOWN || errno == EHOSTUNREACH || errno == ETIMEDOUT || errno == ENOTCONN)
       {
-        if (contimeout && (time(NULL) - start_time) > contimeout)
+        if ((time(NULL) - start_time) > contimeout)
 	{
 	  _cupsLangPrintFilter(stderr, "ERROR",
 	                       _("The printer is not responding."));
+          fputs("STATE: -connecting-to-device\n", stderr);
+          fputs("STATE: +timed-out\n", stderr);
 	  return (CUPS_BACKEND_FAILED);
 	}
 
