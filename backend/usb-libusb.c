@@ -197,6 +197,7 @@ print_device(const char *uri,		/* I - Device URI */
   int		num_opts;		/* Number of options */
   cups_option_t	*opts;			/* Options */
   const char	*val;			/* Option value */
+  time_t        start_time;             /* Time of first connect*/
 
 
   load_quirks();
@@ -214,9 +215,22 @@ print_device(const char *uri,		/* I - Device URI */
   * Connect to the printer...
   */
 
+  start_time = time(NULL);
+
   fprintf(stderr, "DEBUG: Printing on printer with URI: %s\n", uri);
   while ((g.printer = find_device(print_cb, uri)) == NULL)
   {
+    if ((time(NULL) - start_time) > CROS_PRINTER_CONNECT_TIMEOUT)
+    {
+      fprintf(stderr, "ERROR: The printer is not responding.\n");
+      _cupsLangPrintFilter(stderr, "ERROR",
+			   _("The printer is not responding."));
+      fputs("STATE: -connecting-to-device\n", stderr);
+      fputs("STATE: +timed-out\n", stderr);
+      close_device(g.printer);
+      return (CUPS_BACKEND_FAILED);
+    }
+
     _cupsLangPrintFilter(stderr, "INFO",
 			 _("Waiting for printer to become available."));
     sleep(5);

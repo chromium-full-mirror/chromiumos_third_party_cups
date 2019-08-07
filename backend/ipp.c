@@ -429,7 +429,7 @@ main(int  argc,				/* I - Number of command-line args */
   version     = 20;
   waitjob     = 1;
   waitprinter = 1;
-  contimeout  = 20;
+  contimeout  = CROS_PRINTER_CONNECT_TIMEOUT;
 
   if ((optptr = strchr(resource, '?')) != NULL)
   {
@@ -763,7 +763,7 @@ main(int  argc,				/* I - Number of command-line args */
 
       fprintf(stderr, "DEBUG: Connection error: %s\n", strerror(errno));
 
-      if (contimeout && (time(NULL) - start_time) > contimeout)
+      if ((time(NULL) - start_time) > contimeout)
       {
         _cupsLangPrintFilter(stderr, "ERROR",
                              _("The printer is not responding."));
@@ -975,7 +975,7 @@ main(int  argc,				/* I - Number of command-line args */
       if (ipp_status == IPP_STATUS_ERROR_BUSY ||
 	  ipp_status == IPP_STATUS_ERROR_SERVICE_UNAVAILABLE)
       {
-        if (contimeout && (time(NULL) - start_time) > contimeout)
+        if ((time(NULL) - start_time) > contimeout)
 	{
 	  _cupsLangPrintFilter(stderr, "ERROR",
 	                       _("The printer is not responding."));
