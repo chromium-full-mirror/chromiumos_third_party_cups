@@ -174,6 +174,7 @@ struct ppd_option_s			/**** Options ****/
   ppd_section_t	section;		/* Section for command */
   float		order;			/* Order number */
   int		num_choices;		/* Number of option choices */
+  int choices_capacity;                 /* Holdable choices without realloc */
   ppd_choice_t	*choices;		/* Option choices */
 };
 
