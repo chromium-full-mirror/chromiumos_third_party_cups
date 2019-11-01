@@ -3413,6 +3413,7 @@ ippReadIO(void       *src,		/* I - Data source */
 
 	    case IPP_TAG_TEXT :
 	    case IPP_TAG_NAME :
+	    case IPP_TAG_RESERVED_STRING :
 	    case IPP_TAG_KEYWORD :
 	    case IPP_TAG_URI :
 	    case IPP_TAG_URISCHEME :
@@ -6491,6 +6492,7 @@ ipp_free_values(ipp_attribute_t *attr,	/* I - Attribute to free values from */
 
       case IPP_TAG_TEXT :
       case IPP_TAG_NAME :
+      case IPP_TAG_RESERVED_STRING :
       case IPP_TAG_KEYWORD :
       case IPP_TAG_URI :
       case IPP_TAG_URISCHEME :
@@ -6530,7 +6532,6 @@ ipp_free_values(ipp_attribute_t *attr,	/* I - Attribute to free values from */
 	  }
 	  break;
 
-      case IPP_TAG_RESERVED_STRING :
       case IPP_TAG_STRING :
       default :
 	  for (i = count, value = attr->values + element;
