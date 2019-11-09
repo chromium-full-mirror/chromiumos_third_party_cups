@@ -451,7 +451,7 @@ AC_SUBST([INSTALLXPC])
 dnl Check for build components
 COMPONENTS="all"
 
-AC_ARG_WITH([components], AS_HELP_STRING([--with-components], [set components to build: "all" (default) builds everything, "core" builds libcups and ipptool, "libcups" builds just libcups, "libcupslite" builds just libcups without driver support]), [
+AC_ARG_WITH([components], AS_HELP_STRING([--with-components], [set components to build: "all" (default) builds everything, "core" builds libcups and ipptool, "cros-minimal" builds just the files needed in Chrome OS, "libcups" builds just libcups, "libcupslite" builds just libcups without driver support]), [
     COMPONENTS="$withval"
 ])
 
@@ -472,6 +472,8 @@ AS_CASE(["$COMPONENTS"], [all], [
     LIBCUPSOBJS="\$(COREOBJS)"
     LIBHEADERS="\$(COREHEADERS)"
     LIBHEADERSPRIV="\$(COREHEADERSPRIV)"
+], [cros-minimal], [
+    BUILDDIRS="filter backend scheduler systemv conf data"
 ], [libcups], [
     BUILDDIRS="locale"
     cupsimagebase=""
