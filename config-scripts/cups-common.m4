@@ -422,6 +422,7 @@ COMPONENTS="all"
 AC_ARG_WITH(components, [  --with-components       set components to build:
 			    - "all" (default) builds everything
 			    - "core" builds libcups and ipptool
+			    - "cros-minimal" builds only the files needed in Chrome OS
 			    - "libcups" builds just libcups
 			    - "libcupslite" builds just libcups without driver support],
 	COMPONENTS="$withval")
@@ -435,6 +436,10 @@ LIBHEADERSPRIV="\$(COREHEADERSPRIV) \$(DRIVERHEADERSPRIV)"
 case "$COMPONENTS" in
 	all)
 		BUILDDIRS="tools filter backend berkeley cgi-bin monitor notifier ppdc scheduler systemv conf data desktop locale man doc examples templates"
+		;;
+
+	cros-minimal)
+		BUILDDIRS="filter backend ppdc scheduler systemv conf data"
 		;;
 
 	core)
@@ -465,7 +470,7 @@ case "$COMPONENTS" in
 		;;
 
 	*)
-		AC_MSG_ERROR([Bad build component "$COMPONENT" specified!])
+		AC_MSG_ERROR([Bad build component "$COMPONENTS" specified!])
 		;;
 esac
 
