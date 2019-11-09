@@ -436,6 +436,7 @@ COMPONENTS="all"
 
 AC_ARG_WITH(components, [  --with-components       set components to build:
 			    - "all" (default) builds everything
+			    - "cros-minimal" builds only the files needed in Chrome OS
 			    - "core" builds libcups and ipptool],
 	COMPONENTS="$withval")
 
@@ -444,12 +445,16 @@ case "$COMPONENTS" in
 		BUILDDIRS="filter backend berkeley cgi-bin monitor notifier ppdc scheduler systemv conf data desktop locale man doc examples templates"
 		;;
 
+	cros-minimal)
+		BUILDDIRS="filter backend ppdc scheduler systemv conf data"
+		;;
+
 	core)
 		BUILDDIRS="data locale"
 		;;
 
 	*)
-		AC_MSG_ERROR([Bad build component "$COMPONENT" specified!])
+		AC_MSG_ERROR([Bad build component "$COMPONENTS" specified!])
 		;;
 esac
 
