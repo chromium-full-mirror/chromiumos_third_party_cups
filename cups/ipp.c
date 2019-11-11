@@ -15,6 +15,7 @@
 #include "cups-private.h"
 #include "debug-internal.h"
 #include <regex.h>
+#include <stdint.h>
 #ifdef _WIN32
 #  include <io.h>
 #endif /* _WIN32 */
@@ -2812,6 +2813,35 @@ ippNewResponse(ipp_t *request)		/* I - IPP request message */
   return (response);
 }
 
+/*
+ * 'Read4BytesInteger' - Read the first 4 bytes from the buffer and decode them
+ *                       as 32-bit integer. Two's-complement binary encoding is
+ *                       assumed.
+ */
+static int Read4BytesAsInteger(const unsigned char * const buffer)
+{
+  /* loads first 3 bytes; it is save because the first operand of << is
+   * converted to int and results of << are also signed integers
+   */
+  uint32_t uval = (uint32_t)(((buffer[0] << 8) | buffer[1]) << 8) | buffer[2];
+  /* loads fourth byte, this time we have to make sure we work on uint32_t */
+  uval <<= 8;
+  uval |= buffer[3];
+  /* decode two's-complement binary encoding */
+  if ( (uval & 0x80000000u) == 0u ) {
+    /* first bit = 0: positive value or zero */
+    return (int)uval;
+  } else if ( (uval << 1) == 0u ) {
+    /* first bit = 1 and the rest are zeroes: minimal possible value */
+    return INT32_MIN;
+  } else {
+    /* first bit = 1 and at least one other 1:
+     * decode from two complement conversion
+     */
+    --uval;
+    return -(int)(~uval);
+  }
+}
 
 /*
  * 'ippRead()' - Read data for an IPP message from a HTTP connection.
@@ -2911,8 +2941,7 @@ ippReadIO(void       *src,		/* I - Data source */
           ipp->request.any.version[0]  = buffer[0];
           ipp->request.any.version[1]  = buffer[1];
           ipp->request.any.op_status   = (buffer[2] << 8) | buffer[3];
-          ipp->request.any.request_id  = (((((buffer[4] << 8) | buffer[5]) << 8) |
-	                        	 buffer[6]) << 8) | buffer[7];
+          ipp->request.any.request_id  = Read4BytesAsInteger(buffer + 4);
 
           DEBUG_printf(("2ippReadIO: version=%d.%d", buffer[0], buffer[1]));
 	  DEBUG_printf(("2ippReadIO: op_status=%04x",
@@ -2963,8 +2992,7 @@ ippReadIO(void       *src,		/* I - Data source */
 	      return (IPP_STATE_ERROR);
 	    }
 
-	    tag = (ipp_tag_t)((((((buffer[0] << 8) | buffer[1]) << 8) |
-	                        buffer[2]) << 8) | buffer[3]);
+	    tag = (ipp_tag_t)(Read4BytesAsInteger(buffer));
 
             if (tag & IPP_TAG_CUPS_CONST)
             {
@@ -3270,8 +3298,7 @@ ippReadIO(void       *src,		/* I - Data source */
 		  return (IPP_STATE_ERROR);
 		}
 
-		n = (((((buffer[0] << 8) | buffer[1]) << 8) | buffer[2]) << 8) |
-		    buffer[3];
+		n = Read4BytesAsInteger(buffer);
 
                 if (attr->value_tag == IPP_TAG_RANGE)
                   value->range.lower = value->range.upper = n;
@@ -3378,12 +3405,8 @@ ippReadIO(void       *src,		/* I - Data source */
 		  return (IPP_STATE_ERROR);
 		}
 
-                value->resolution.xres =
-		    (((((buffer[0] << 8) | buffer[1]) << 8) | buffer[2]) << 8) |
-		    buffer[3];
-                value->resolution.yres =
-		    (((((buffer[4] << 8) | buffer[5]) << 8) | buffer[6]) << 8) |
-		    buffer[7];
+                value->resolution.xres = Read4BytesAsInteger(buffer);
+                value->resolution.yres = Read4BytesAsInteger(buffer+4);
                 value->resolution.units =
 		    (ipp_res_t)buffer[8];
 	        break;
@@ -3406,12 +3429,8 @@ ippReadIO(void       *src,		/* I - Data source */
 		  return (IPP_STATE_ERROR);
 		}
 
-                value->range.lower =
-		    (((((buffer[0] << 8) | buffer[1]) << 8) | buffer[2]) << 8) |
-		    buffer[3];
-                value->range.upper =
-		    (((((buffer[4] << 8) | buffer[5]) << 8) | buffer[6]) << 8) |
-		    buffer[7];
+                value->range.lower = Read4BytesAsInteger(buffer);
+                value->range.upper = Read4BytesAsInteger(buffer+4);
 	        break;
 
 	    case IPP_TAG_TEXTLANG :
