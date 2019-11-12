@@ -2342,7 +2342,8 @@ ipp_col_string(ipp_t  *col,		/* I - Collection attribute */
   }
 
   bufptr = buffer;
-  bufend = buffer + bufsize - 1;
+  if (buffer)
+    bufend = buffer + bufsize - 1;
 
   for (attr = col->attrs; attr; attr = attr->next)
   {
