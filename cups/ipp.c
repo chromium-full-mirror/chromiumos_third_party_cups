@@ -3713,6 +3713,9 @@ ippReadIO(void       *src,		/* I - Data source */
 	          if ((*cb)(src, value->unknown.data, (size_t)n) < n)
 		  {
 	            DEBUG_puts("1ippReadIO: Unable to read unsupported value.");
+	            free(value->unknown.data);
+	            value->unknown.data = NULL;
+	            value->unknown.length = 0;
 		    _cupsBufferRelease((char *)buffer);
 		    return (IPP_STATE_ERROR);
 		  }
