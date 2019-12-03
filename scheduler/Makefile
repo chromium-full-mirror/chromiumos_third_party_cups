@@ -44,16 +44,12 @@ COBJS	=	\
 		$(CUPSDOBJS) \
 		$(LIBOBJS) \
 		cupsfilter.o \
-		cups-deviced.o \
 		cups-exec.o \
-		cups-lpd.o \
 		testlpd.o \
 		testmime.o \
 		testspeed.o \
 		testsub.o \
 		util.o
-CXXOBJS	=	\
-		cups-driverd.o
 OBJS	=	\
 		$(COBJS) \
 		$(CXXOBJS)
@@ -69,10 +65,7 @@ UNITTARGETS =	\
 PROGRAMS =	\
 		cupsd \
 		cupsfilter \
-		cups-deviced \
-		cups-driverd \
 		cups-exec \
-		cups-lpd
 
 TARGETS	=	\
 		$(LIBTARGETS) \
@@ -219,10 +212,7 @@ install-exec:
 	echo Installing programs in $(SERVERBIN)/daemon...
 	$(INSTALL_DIR) -m 755 $(SERVERBIN)
 	$(INSTALL_DIR) -m 755 $(SERVERBIN)/daemon
-	$(INSTALL_BIN) cups-deviced $(SERVERBIN)/daemon
-	$(INSTALL_BIN) cups-driverd $(SERVERBIN)/daemon
 	$(INSTALL_BIN) cups-exec $(SERVERBIN)/daemon
-	$(INSTALL_BIN) cups-lpd $(SERVERBIN)/daemon
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(PROGRAMS); do \
@@ -253,10 +243,7 @@ install-libs:
 uninstall:
 	$(RM) $(SBINDIR)/cupsd
 	$(RM) $(SBINDIR)/cupsfilter
-	$(RM) $(SERVERBIN)/daemon/cups-deviced
-	$(RM) $(SERVERBIN)/daemon/cups-driverd
 	$(RM) $(SERVERBIN)/daemon/cups-exec
-	$(RM) $(SERVERBIN)/daemon/cups-lpd
 	-$(RMDIR) $(STATEDIR)/certs
 	-$(RMDIR) $(STATEDIR)
 	-$(RMDIR) $(SERVERROOT)/ppd
@@ -346,43 +333,12 @@ cupsfilter-static:	cupsfilter.o libcupsmime.a ../cups/$(LIBCUPSSTATIC)
 
 
 #
-# Make the device daemon, "cups-deviced".
-#
-
-cups-deviced:	cups-deviced.o util.o ../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(LD_CC) $(ALL_LDFLAGS) -o cups-deviced cups-deviced.o util.o $(LINKCUPS)
-	$(CODE_SIGN) -s "$(CODE_SIGN_IDENTITY)" $@
-
-
-#
-# Make the driver daemon, "cups-driverd".
-#
-
-cups-driverd:	cups-driverd.o util.o ../cups/$(LIBCUPS) ../ppdc/libcupsppdc.a
-	echo Linking $@...
-	$(LD_CXX) $(ALL_LDFLAGS) -o cups-driverd cups-driverd.o util.o \
-		../ppdc/libcupsppdc.a $(COMMONLIBS) $(LINKCUPS)
-	$(CODE_SIGN) -s "$(CODE_SIGN_IDENTITY)" $@
-
-
-#
 # Make the sandbox execution helper, "cups-exec".
 #
 
 cups-exec:	cups-exec.o
 	echo Linking $@...
 	$(LD_CC) $(ALL_LDFLAGS) -o cups-exec cups-exec.o $(LINKCUPS)
-	$(CODE_SIGN) -s "$(CODE_SIGN_IDENTITY)" $@
-
-
-#
-# Make the line printer daemon, "cups-lpd".
-#
-
-cups-lpd:	cups-lpd.o ../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(LD_CC) $(ALL_LDFLAGS) -o cups-lpd cups-lpd.o $(LINKCUPS)
 	$(CODE_SIGN) -s "$(CODE_SIGN_IDENTITY)" $@
 
 
@@ -395,15 +351,6 @@ libcupsmime.a:	$(LIBOBJS)
 	$(RM) $@
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS)
 	$(RANLIB) $@
-
-
-#
-# Make the test program, "testlpd".
-#
-
-testlpd:	testlpd.o ../cups/$(LIBCUPSSTATIC) cups-lpd
-	echo Linking $@...
-	$(LD_CC) $(ALL_LDFLAGS) -o testlpd testlpd.o $(LINKCUPSSTATIC)
 
 
 #
