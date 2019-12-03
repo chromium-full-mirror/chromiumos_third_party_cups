@@ -446,7 +446,7 @@ case "$COMPONENTS" in
 		;;
 
 	cros-minimal)
-		BUILDDIRS="filter backend ppdc scheduler systemv conf data"
+		BUILDDIRS="filter backend scheduler systemv conf data"
 		;;
 
 	core)

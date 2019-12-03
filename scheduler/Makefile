@@ -47,16 +47,12 @@ COBJS	=	\
 		$(CUPSDOBJS) \
 		$(LIBOBJS) \
 		cupsfilter.o \
-		cups-deviced.o \
 		cups-exec.o \
-		cups-lpd.o \
 		testlpd.o \
 		testmime.o \
 		testspeed.o \
 		testsub.o \
 		util.o
-CXXOBJS	=	\
-		cups-driverd.o
 OBJS	=	\
 		$(COBJS) \
 		$(LD_CXXOBJS)
@@ -73,10 +69,7 @@ UNITTARGETS =	\
 PROGRAMS =	\
 		cupsd \
 		cupsfilter \
-		cups-deviced \
-		cups-driverd \
 		cups-exec \
-		cups-lpd
 
 TARGETS	=	\
 		$(LIBTARGETS) \
@@ -224,10 +217,7 @@ install-exec:
 	echo Installing programs in $(SERVERBIN)/daemon...
 	$(INSTALL_DIR) -m 755 $(SERVERBIN)
 	$(INSTALL_DIR) -m 755 $(SERVERBIN)/daemon
-	$(INSTALL_BIN) cups-deviced $(SERVERBIN)/daemon
-	$(INSTALL_BIN) cups-driverd $(SERVERBIN)/daemon
 	$(INSTALL_BIN) cups-exec $(SERVERBIN)/daemon
-	$(INSTALL_BIN) cups-lpd $(SERVERBIN)/daemon
 	if test "x$(SYMROOT)" != "x"; then \
 		$(INSTALL_DIR) $(SYMROOT); \
 		for file in $(PROGRAMS); do \
@@ -285,10 +275,7 @@ installstatic:
 uninstall:
 	$(RM) $(SBINDIR)/cupsd
 	$(RM) $(SBINDIR)/cupsfilter
-	$(RM) $(SERVERBIN)/daemon/cups-deviced
-	$(RM) $(SERVERBIN)/daemon/cups-driverd
 	$(RM) $(SERVERBIN)/daemon/cups-exec
-	$(RM) $(SERVERBIN)/daemon/cups-lpd
 	-$(RMDIR) $(STATEDIR)/certs
 	-$(RMDIR) $(STATEDIR)
 	-$(RMDIR) $(SERVERROOT)/ppd
@@ -389,40 +376,12 @@ cupsfilter-static:	cupsfilter.o libcupsmime.a ../cups/$(LIBCUPSSTATIC)
 
 
 #
-# Make the device daemon, "cups-deviced".
-#
-
-cups-deviced:	cups-deviced.o util.o ../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(LD_CC) $(LDFLAGS) -o cups-deviced cups-deviced.o util.o $(LIBS)
-
-
-#
-# Make the driver daemon, "cups-driverd".
-#
-
-cups-driverd:	cups-driverd.o util.o ../cups/$(LIBCUPS) ../ppdc/$(LIBCUPSPPDC)
-	echo Linking $@...
-	$(LD_CXX) $(LDFLAGS) -o cups-driverd cups-driverd.o util.o \
-		-L../ppdc -lcupsppdc $(LIBS)
-
-
-#
 # Make the sandbox execution helper, "cups-exec".
 #
 
 cups-exec:	cups-exec.o
 	echo Linking $@...
 	$(LD_CC) $(LDFLAGS) -o cups-exec cups-exec.o $(LIBS)
-
-
-#
-# Make the line printer daemon, "cups-lpd".
-#
-
-cups-lpd:	cups-lpd.o ../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(LD_CC) $(LDFLAGS) -o cups-lpd cups-lpd.o $(LIBS)
 
 
 #
@@ -471,16 +430,6 @@ libcupsmime.a:	$(LIBOBJS)
 	$(RM) $@
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS)
 	$(RANLIB) $@
-
-
-#
-# Make the test program, "testlpd".
-#
-
-testlpd:	testlpd.o ../cups/$(LIBCUPSSTATIC) cups-lpd
-	echo Linking $@...
-	$(LD_CC) $(LDFLAGS) -o testlpd testlpd.o ../cups/$(LIBCUPSSTATIC) \
-		$(COMMONLIBS) $(LIBZ) $(SSLLIBS) $(DNSSDLIBS) $(LIBGSSAPI)
 
 
 #
