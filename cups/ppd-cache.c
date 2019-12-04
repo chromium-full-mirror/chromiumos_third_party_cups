@@ -3179,6 +3179,23 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   cupsFilePuts(fp, "*cupsLanguages: \"en\"\n");
 
  /*
+  * Copies...
+  */
+
+  ipp_attribute_t *copies_supported =
+      ippFindAttribute(response, "copies-supported", IPP_TAG_RANGE);
+  if (copies_supported) {
+    int lower = copies_supported->values[0].range.lower;
+    int upper = copies_supported->values[0].range.upper;
+    cupsFilePrintf(fp, "*cupsMaxCopies: %d\n", upper);
+    cupsFilePrintf(fp, "*cupsManualCopies: %s\n",
+                   upper == 1 ? "True" : "False");
+  } else {
+    cupsFilePuts(fp, "*cupsMaxCopies: 1\n");
+    cupsFilePuts(fp, "*cupsManualCopies: True\n");
+  }
+
+ /*
   * Accounting...
   */
 
