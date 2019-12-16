@@ -3544,8 +3544,17 @@ add_printer_filter(
     else
       snprintf(filename, sizeof(filename), "%s/filter/%s", ServerBin, program);
 
-    _cupsFileCheck(filename, _CUPS_FILE_CHECK_PROGRAM, !RunUser,
-                   cupsdLogFCMessage, p);
+    if (_cupsFileCheck(filename, _CUPS_FILE_CHECK_PROGRAM, !RunUser,
+                   cupsdLogFCMessage, p)) {
+      /*
+       * Makes an additional attempt to find the filter if it's not
+       * obviously accessible.
+       */
+      _cupsLangPrintf(stderr, _("trying again to find \"%s\""), program);
+      if (_cupsSearchFilterLatest(program, filename, sizeof(filename)) != 1) {
+        _cupsLangPrintf(stderr, _("failed to find \"%s\" on retry"), program);
+      }
+    }
   }
 
  /*
