@@ -653,9 +653,21 @@ add_printer_filter(
     else
       snprintf(filename, sizeof(filename), "%s/filter/%s", ServerBin, program);
 
-    if (_cupsFileCheck(filename, _CUPS_FILE_CHECK_PROGRAM, !geteuid(), check_cb,
-                       (void *)command))
-      return;
+    if (_cupsFileCheck(filename, _CUPS_FILE_CHECK_PROGRAM, !geteuid(), NULL,
+                       NULL)) {
+      /*
+       * Makes an additional attempt to find the filter if it's not
+       * obviously accessible.
+       */
+      if (_cupsSearchFilterLatest(program, filename, sizeof(filename)) != 1) {
+        _cupsLangPrintf(stderr, _("%s: _cupsSearchFilterLatest() failed on \"%s\"."), command,
+                        filter);
+        return;
+      } else if (_cupsFileCheck(filename, _CUPS_FILE_CHECK_PROGRAM, !geteuid(), check_cb,
+                       (void *)command)) {
+        return;
+      }
+    }
   }
 
  /*
@@ -1190,6 +1202,14 @@ exec_filters(mime_type_t   *srctype,	/* I - Source type */
     else
       snprintf(program, sizeof(program), "%s/filter/%s", ServerBin,
 	       filter->filter);
+
+    /*
+     * Makes an additional attempt to find the filter if it's not
+     * obviously accessible.
+     */
+    if (_cupsFileCheck(program, _CUPS_FILE_CHECK_PROGRAM, !geteuid(), NULL, NULL)) {
+      _cupsSearchFilterLatest(filter->filter, program, sizeof(program));
+    }
 
     if (filterfds[!current][1] > 1)
     {
