@@ -3438,6 +3438,12 @@ ippReadIO(void       *src,		/* I - Data source */
 		  attr->value_tag = IPP_TAG_TEXT;
 		}
 
+        case IPP_TAG_UNSUPPORTED_VALUE :
+        case IPP_TAG_DEFAULT :
+        case IPP_TAG_UNKNOWN :
+            /* The rest of out-of-band values */
+            break;
+
 	    case IPP_TAG_TEXT :
 	    case IPP_TAG_NAME :
 	    case IPP_TAG_RESERVED_STRING :
