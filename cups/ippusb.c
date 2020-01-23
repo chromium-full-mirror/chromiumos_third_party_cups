@@ -158,16 +158,30 @@ int valid_response(const char* response) {
   return 1;
 }
 
-char* change_scheme(const char* uri, const char* scheme) {
+int change_scheme(const char* uri, const char* scheme, size_t n,
+                  char* fixed_uri) {
+  if (!uri || !scheme || !fixed_uri) {
+    _cupsLangPrintf(stderr, _("Received invalid arguments"));
+    return 0;
+  }
+
+  // Find the ":" separator in |uri| which indicates the end of the scheme
+  // portion.
   char* p = strchr(uri, ':');
-  if (!p)
-    return NULL;
+  if (!p) {
+    _cupsLangPrintf(stderr, _("Could not \":\" separator in uri \"%s\""), uri);
+    return 0;
+  }
 
-  char* updated_uri;
-  if (asprintf(&updated_uri, "%s%s", scheme, p) == -1)
-    return NULL;
-
-  return updated_uri;
+  // Attempt to write the contents of |uri| to |fixed_uri|, replacing the scheme
+  // portion of |uri| with |scheme|.
+  int ret = snprintf(fixed_uri, n, "%s%s", scheme, p);
+  if (ret < 0 || ret >= n) {
+    _cupsLangPrintf(stderr, _("Failed to write uri with new scheme \"%s\""),
+                    scheme);
+    return 0;
+  }
+  return 1;
 }
 
 void wait_for_socket(const char* filename, long timeout) {
