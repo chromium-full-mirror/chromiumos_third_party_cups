@@ -42,6 +42,8 @@ static int		set_printer_options(http_t *http, char *printer,
 					    char *file);
 static int		validate_name(const char *name);
 
+static ipp_t *request_document_formats(http_t *http, const char *resource,
+                                       const char *uri);
 
 /*
  * 'main()' - Parse options and configure the scheduler.
@@ -1266,34 +1268,85 @@ get_printer_ppd(
   * Send a Get-Printer-Attributes request...
   */
 
-  request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
+  // This will zero-fill the array with a size of |MAX_IPPUSB_URI|.
+  char ippusb_uri[MAX_IPPUSB_URI] = {0};
+  int use_ippusb = 0;
   if (!strcmp(scheme, "ippusb")) {
     // Change the uri back to use the ipp scheme for communicating with the cups
     // server and so that communications will be understood by the printer.
     // We can't simply change the existing uri because we want lpadmin to save
     // the printer in the system as "ippusb", but need the "ipp" scheme in
-    // |fixed_uri| in order to communicate with the printer.
-    char* fixed_uri = change_scheme(uri, "ipp");
-    if (!fixed_uri) {
+    // |ippusb_uri| in order to communicate with the printer.
+    if (!change_scheme(uri, "ipp", HTTP_MAX_URI, ippusb_uri)) {
       _cupsLangPrintf(stderr, _("%s: Failed to change uri to %s"), "lpadmin",
                       "ipp");
       _exit(1);
     }
-    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
-                 fixed_uri);
-    free(fixed_uri);
-  } else {
-    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
-                 uri);
+    use_ippusb = 1;
   }
 
-/* We do not use the command below because some printers cannot interpret this
-   field correctly and skip important parameters in the response.
-  ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD, "requested-attributes", sizeof(pattrs) / sizeof(pattrs[0]), NULL, pattrs);
-*/
+  request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
+               use_ippusb ? ippusb_uri : uri);
+
+  // First we send a "Get-Printer-Attributes" request which simply requests the
+  // supported document formats. This is done so that if the printer supports
+  // one of either PDF or PWG-Raster as an input format we can request all of
+  // the printer's supported attributes for that specific format.
+  //
+  // Document formats are prioritized in the following order:
+  //
+  // PDF > PWG-Raster > everything else
+  ipp_t *document_formats_response =
+      request_document_formats(http, resource, use_ippusb ? ippusb_uri : uri);
+  ipp_attribute_t *document_format = NULL;
+  if (document_formats_response == NULL) {
+    _cupsLangPrintf(stderr,
+                    _("%s: Failed to execute Get-Printer-Attributes request "
+                      "for requested-attributes document-format-supported"),
+                    "lpadmin");
+  } else {
+    ipp_attribute_t *document_formats = ippFindAttribute(
+        document_formats_response, "document-format-supported", IPP_TAG_MIMETYPE);
+    if (document_formats == NULL) {
+      _cupsLangPrintf(stderr,
+                      _("%s: Couldn't find 'document-format-supported' in "
+                        "Get-Printer-Attributes response"),
+                      "lpadmin");
+    } else {
+      // If |document_formats| contains one of our preferred input types, then
+      // specify that type in our Get-Printer-Attributes request.
+      if (ippContainsString(document_formats, "application/pdf")) {
+        document_format = ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_MIMETYPE,
+                                       "document-format", NULL, "application/pdf");
+      } else if (ippContainsString(document_formats, "image/pwg-raster")) {
+        document_format = ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_MIMETYPE,
+                                       "document-format", NULL, "image/pwg-raster");
+      } else {
+        _cupsLangPrintf(stderr,
+                        _("%s: Printer does not support either 'application/pdf' "
+                          "or 'image/pwg-raster' formats."),
+                        "lpadmin");
+      }
+    }
+    ippDelete(document_formats_response);
+  }
 
   response = cupsDoRequest(http, request, resource);
-
+  if (response == NULL && document_format) {
+    _cupsLangPrintf(stderr,
+                    _("%s: Failed to execute Get-Printer-Attributes request"
+		      " - retrying without document-format attribute..."),
+		      "lpadmin");
+    ippDeleteAttribute(request, document_format);
+    response = cupsDoRequest(http, request, resource);
+  }
+  if (response == NULL) {
+    _cupsLangPrintf(stderr,
+                    _("%s:  Failed to execute Get-Printer-Attributes request"),
+		      "lpadmin");
+    return (NULL);
+  }
   if (_ppdCreateFromIPP(buffer, bufsize, response))
   {
     if (!cupsGetOption("printer-geo-location", *num_options, *options) && (attr = ippFindAttribute(response, "printer-geo-location", IPP_TAG_URI)) != NULL)
@@ -1795,4 +1848,19 @@ validate_name(const char *name)		/* I - Name to check */
   */
 
   return ((ptr - name) < 128);
+}
+
+// Sends a Get-Printer-Attributes request for specifically the
+// "document-format-supported" attribute to the printer connection defined by
+// the given |http| and |resource|.
+static ipp_t *request_document_formats(http_t *http, const char *resource,
+                                       const char *uri) {
+  ipp_t *request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
+  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
+               uri);
+  const char *const pattrs[] = {"document-format-supported"};
+  ippAddStrings(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
+                "requested-attributes", sizeof(pattrs) / sizeof(pattrs[0]),
+                NULL, pattrs);
+  return cupsDoRequest(http, request, resource);
 }
