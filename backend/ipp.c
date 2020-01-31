@@ -804,7 +804,7 @@ main(int  argc,				/* I - Number of command-line args */
       {
 	_cupsLangPrintFilter(stderr, "ERROR",
 	                     _("The printer is not responding."));
-	sleep(30);
+	sleep(CROS_PRINTER_RETRY_TIMEOUT);
       }
 
       if (job_canceled)
@@ -1046,7 +1046,7 @@ main(int  argc,				/* I - Number of command-line args */
       {
 	_cupsLangPrintFilter(stderr, "ERROR",
 	                     _("Unable to get printer status."));
-        sleep(10);
+        sleep(CROS_PRINTER_RETRY_TIMEOUT);
 
 	httpReconnect2(http, 30000, NULL);
       }
