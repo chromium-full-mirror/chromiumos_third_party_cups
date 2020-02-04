@@ -154,7 +154,7 @@ static void		cancel_job(http_t *http, const char *uri, int id,
 				   int version);
 static ipp_pstate_t	check_printer_state(http_t *http, const char *uri,
 		                            const char *resource,
-					    const char *user, int version);
+					    const char *user, int version, int *accept_jobs);
 static void		debug_attributes(ipp_t *ipp);
 static void		*monitor_printer(_cups_monitor_t *monitor);
 static ipp_t		*new_request(ipp_op_t op, int version, const char *uri,
@@ -272,7 +272,7 @@ main(int  argc,				/* I - Number of command-line args */
   ppd_file_t	*ppd = NULL;		/* PPD file */
   _ppd_cache_t	*pc = NULL;		/* PPD cache and mapping data */
   fd_set	input;			/* Input set for select() */
-
+  int printer_is_accepting_jobs = 0; /* !=0 <=> printer-is-accepting-jobs is true */
 
  /*
   * Make sure status messages are not buffered...
@@ -2052,7 +2052,7 @@ main(int  argc,				/* I - Number of command-line args */
       * Check printer state...
       */
 
-      check_printer_state(http, uri, resource, argv[2], version);
+      check_printer_state(http, uri, resource, argv[2], version, &printer_is_accepting_jobs);
 
       if (cupsLastError() <= IPP_STATUS_OK_CONFLICTING)
         password_tries = 0;
@@ -2155,10 +2155,13 @@ main(int  argc,				/* I - Number of command-line args */
 		    job_sheets->values[0].integer);
 
 	 /*
-          * Stop polling if the job is finished or pending-held...
+	  * Stop polling if the job is finished, pending-held or
+	  * the printer has printer-is-accepting-jobs attribute set to true ...
 	  */
 
-          if (job_state->values[0].integer > IPP_JSTATE_STOPPED || job_state->values[0].integer == IPP_JSTATE_HELD)
+          if (job_state->values[0].integer > IPP_JSTATE_STOPPED ||
+	      job_state->values[0].integer == IPP_JSTATE_HELD ||
+	      printer_is_accepting_jobs)
 	  {
 	    ippDelete(response);
 	    break;
@@ -2209,7 +2212,7 @@ main(int  argc,				/* I - Number of command-line args */
   * Check the printer state and report it if necessary...
   */
 
-  check_printer_state(http, uri, resource, argv[2], version);
+  check_printer_state(http, uri, resource, argv[2], version, NULL);
 
   if (cupsLastError() <= IPP_STATUS_OK_CONFLICTING)
     password_tries = 0;
@@ -2355,7 +2358,8 @@ check_printer_state(
     const char  *uri,			/* I - Printer URI */
     const char  *resource,		/* I - Resource path */
     const char  *user,			/* I - Username, if any */
-    int         version)		/* I - IPP version */
+    int         version,		/* I - IPP version */
+	int         *accept_jobs)   /* O - printer is accepting jobs */
  {
   ipp_t		*request,		/* IPP request */
 		*response;		/* IPP response */
@@ -2392,6 +2396,16 @@ check_printer_state(
     if ((attr = ippFindAttribute(response, "printer-state",
 				 IPP_TAG_ENUM)) != NULL)
       printer_state = (ipp_pstate_t)attr->values[0].integer;
+  }
+
+  if (accept_jobs) {
+    *accept_jobs = 0;
+    if (response) {
+      attr = ippFindAttribute(response, "printer-is-accepting-jobs",
+          IPP_TAG_BOOLEAN);
+      if (attr && attr->values[0].boolean)
+        *accept_jobs = 1;
+    }
   }
 
   fprintf(stderr, "DEBUG: Get-Printer-Attributes: %s (%s)\n",
@@ -2512,7 +2526,7 @@ monitor_printer(
       monitor->printer_state = check_printer_state(http, monitor->uri,
                                                    monitor->resource,
 						   monitor->user,
-						   monitor->version);
+						   monitor->version, NULL);
       if (cupsLastError() <= IPP_STATUS_OK_CONFLICTING)
         password_tries = 0;
 
