@@ -461,6 +461,8 @@ httpAddrPort(http_addr_t *addr)		/* I - Address */
 #endif /* AF_INET6 */
   else if (addr->addr.sa_family == AF_INET)
     return (ntohs(addr->ipv4.sin_port));
+  else if (addr->addr.sa_family == AF_UNIX)
+    return (60000);
   else
     return (0);
 }
