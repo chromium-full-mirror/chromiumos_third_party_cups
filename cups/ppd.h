@@ -38,7 +38,7 @@
 #  include "array.h"
 #  include "file.h"
 #  include "raster.h"
-
+#  include "stl_wrapper.h"
 
 /*
  * C++ magic...
@@ -343,7 +343,7 @@ typedef struct ppd_file_s		/**** PPD File ****/
   ppd_attr_t	**attrs;		/* Attributes @since CUPS 1.1.19/macOS 10.3@ @private@ */
 
   /**** New in CUPS 1.2/macOS 10.5 ****/
-  cups_array_t	*sorted_attrs;		/* Attribute lookup array @since CUPS 1.2/macOS 10.5@ @private@ */
+  stl_multiset_t	sorted_attrs;		/* Attribute lookup array @since CUPS 1.2/macOS 10.5@ @private@ */
   cups_array_t	*options;		/* Option lookup array @since CUPS 1.2/macOS 10.5@ @private@ */
   cups_array_t	*coptions;		/* Custom options array @since CUPS 1.2/macOS 10.5@ @private@ */
 

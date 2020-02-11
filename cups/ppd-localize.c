@@ -149,13 +149,13 @@ ppdLocalize(ppd_file_t *ppd)		/* I - PPD file */
        attr;
        attr = ppdFindNextAttr(ppd, "cupsICCProfile", NULL))
   {
-    cupsArraySave(ppd->sorted_attrs);
+    stlMultisetSave(ppd->sorted_attrs);
 
     if ((locattr = _ppdLocalizedAttr(ppd, "cupsICCProfile", attr->spec,
                                      ll_CC)) != NULL)
       strlcpy(attr->text, locattr->text, sizeof(attr->text));
 
-    cupsArrayRestore(ppd->sorted_attrs);
+    stlMultisetRestore(ppd->sorted_attrs);
   }
 
  /*
@@ -166,13 +166,13 @@ ppdLocalize(ppd_file_t *ppd)		/* I - PPD file */
        attr;
        attr = ppdFindNextAttr(ppd, "APPrinterPreset", NULL))
   {
-    cupsArraySave(ppd->sorted_attrs);
+    stlMultisetSave(ppd->sorted_attrs);
 
     if ((locattr = _ppdLocalizedAttr(ppd, "APPrinterPreset", attr->spec,
                                      ll_CC)) != NULL)
       strlcpy(attr->text, locattr->text, sizeof(attr->text));
 
-    cupsArrayRestore(ppd->sorted_attrs);
+    stlMultisetRestore(ppd->sorted_attrs);
   }
 
   return (0);

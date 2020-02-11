@@ -226,7 +226,7 @@ ppdPageSizeLimits(ppd_file_t *ppd,	/* I - PPD file record */
   * See if we have the cupsMediaQualifier2 and cupsMediaQualifier3 attributes...
   */
 
-  cupsArraySave(ppd->sorted_attrs);
+  stlMultisetSave(ppd->sorted_attrs);
 
   if ((attr = ppdFindAttr(ppd, "cupsMediaQualifier2", NULL)) != NULL &&
       attr->value)
@@ -342,7 +342,7 @@ ppdPageSizeLimits(ppd_file_t *ppd,	/* I - PPD file record */
   * Return the min and max...
   */
 
-  cupsArrayRestore(ppd->sorted_attrs);
+  stlMultisetRestore(ppd->sorted_attrs);
 
   return (1);
 }

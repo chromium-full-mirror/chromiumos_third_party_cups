@@ -55,7 +55,7 @@ ppdFindAttr(ppd_file_t *ppd,		/* I - PPD file data */
   * Return the first matching attribute, if any...
   */
 
-  if ((attr = (ppd_attr_t *)cupsArrayFind(ppd->sorted_attrs, &key)) != NULL)
+  if ((attr = (ppd_attr_t *)stlMultisetFind(ppd->sorted_attrs, &key)) != NULL)
   {
     if (spec)
     {
@@ -65,7 +65,7 @@ ppdFindAttr(ppd_file_t *ppd,		/* I - PPD file data */
 
       while (attr && _cups_strcasecmp(spec, attr->spec))
       {
-        if ((attr = (ppd_attr_t *)cupsArrayNext(ppd->sorted_attrs)) != NULL &&
+        if ((attr = (ppd_attr_t *)stlMultisetNext(ppd->sorted_attrs)) != NULL &&
 	    _cups_strcasecmp(attr->name, name))
 	  attr = NULL;
       }
@@ -101,7 +101,7 @@ ppdFindNextAttr(ppd_file_t *ppd,	/* I - PPD file data */
   * See if there are more attributes to return...
   */
 
-  while ((attr = (ppd_attr_t *)cupsArrayNext(ppd->sorted_attrs)) != NULL)
+  while ((attr = (ppd_attr_t *)stlMultisetNext(ppd->sorted_attrs)) != NULL)
   {
    /*
     * Check the next attribute to see if it is a match...
@@ -113,7 +113,7 @@ ppdFindNextAttr(ppd_file_t *ppd,	/* I - PPD file data */
       * Nope, reset the current pointer to the end of the array...
       */
 
-      cupsArrayIndex(ppd->sorted_attrs, cupsArrayCount(ppd->sorted_attrs));
+      stlMultisetIndexEnd(ppd->sorted_attrs);
 
       return (NULL);
     }

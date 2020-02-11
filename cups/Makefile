@@ -52,6 +52,7 @@ LIBOBJS	=	\
 		http-support.o \
 		ipp.o \
 		ipp-support.o \
+		ippusb.o \
 		langprintf.o \
 		language.o \
 		md5.o \
@@ -73,14 +74,14 @@ LIBOBJS	=	\
 		sidechannel.o \
 		snmp.o \
 		snprintf.o \
+		stl_wrapper.o \
 		string.o \
 		tempfile.o \
 		thread.o \
 		tls.o \
 		transcode.o \
 		usersys.o \
-		util.o \
-		ippusb.o
+		util.o
 TESTOBJS	= \
 		testadmin.o \
 		testarray.o \
@@ -123,6 +124,7 @@ HEADERS	=	\
 		pwg.h \
 		raster.h \
 		sidechannel.h \
+		stl_wrapper.h \
 		transcode.h \
 		versioning.h
 
@@ -314,7 +316,7 @@ uninstall:
 
 libcups.so.2:	$(LIBOBJS)
 	echo Linking $@...
-	$(DSO) $(ARCHFLAGS) $(DSOFLAGS) -o $@ $(LIBOBJS) $(LIBGSSAPI) \
+	$(DSOXX) $(ARCHFLAGS) $(DSOFLAGS) -o $@ $(LIBOBJS) $(LIBGSSAPI) \
 		$(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
 	$(RM) `basename $@ .2`
 	$(LN) $@ `basename $@ .2`
@@ -331,7 +333,7 @@ libcups.2.dylib:	$(LIBOBJS) $(LIBCUPSORDER)
 		grep -v -E -e '^(_cupsConnect|_cupsCharset|_cupsEncodingName|_cupsSetDefaults|_cupsSetHTTPError|_cupsUserDefault)$$' | \
 		sort >t.exp
 	echo Linking $@...
-	$(DSO) $(ARCHFLAGS) $(DSOFLAGS) -o $@ \
+	$(DSOXX) $(ARCHFLAGS) $(DSOFLAGS) -o $@ \
 		-install_name $(libdir)/$@ \
 		-current_version 2.13.0 \
 		-compatibility_version 2.0.0 \
