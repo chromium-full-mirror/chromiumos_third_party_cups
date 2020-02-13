@@ -5,6 +5,19 @@
 #ifndef _CUPS_IPPUSB_H_
 #define _CUPS_IPPUSB_H_
 
+#include <stddef.h>
+
+// The ippusb URI is always expected to be in one of the two following formats:
+//
+//   ippusb://<vid>_<pid>/ipp/print // 28 characters
+//   ipp://<vid>_<pid>/ipp/print    // 25 characters
+//
+// Where <vid> and <pid> are 4-digit hexidecimal integers. Since the URI is
+// expected to match a strict format, the maximum size is well-defined. We allow
+// for one more character than the larger scheme to account for the terminating
+// NULL byte.
+#define MAX_IPPUSB_URI 29
+
 // Attempts to open the socket used to communicate with ippusb_manager, and if
 // successful returns a file descriptor of the socket.
 int open_ippusb_manager_socket(void);
@@ -23,9 +36,11 @@ char* query_ippusb_manager(int fd, const char* msg);
 // invalid characters.
 int valid_response(const char* response);
 
-// Returns a new a new uri based on the given |uri| that replaces the scheme
-// prefix with the given |scheme|.
-char* change_scheme(const char* uri, const char* scheme);
+// Writes the contents of |uri| to |fixed_uri| but replacing the "scheme"
+// portion with |scheme|. The given value |n| represents the maximum number of
+// characters to be written to |fixed_uri|. Returns 1 on success, 0 on failure.
+int change_scheme(const char* uri, const char* scheme, size_t n,
+                  char* fixed_uri);
 
 // Waits for a maximum time of |timeout| until the socket at |filename| is ready
 // to accept connections.
