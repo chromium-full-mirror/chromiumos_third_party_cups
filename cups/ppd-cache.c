@@ -5615,6 +5615,8 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
 {
   char	*ptr,				/* Pointer into name buffer */
 	*end;				/* End of name buffer */
+  int   nodash = 1;                     /* Next char in IPP name cannot be a
+                                           dash (first char or after a dash) */
 
 
   if (_cups_islower(*ppd))
@@ -5626,7 +5628,9 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
     const char *ppdptr;			/* Pointer into PPD keyword */
 
     for (ppdptr = ppd + 1; *ppdptr; ppdptr ++)
-      if (_cups_isupper(*ppdptr) || strchr(dashchars, *ppdptr))
+      if (_cups_isupper(*ppdptr) || strchr(dashchars, *ppdptr) ||
+	  (*ppdptr == '-' && *(ppdptr - 1) == '-') ||
+	  (*ppdptr == '-' && *(ppdptr + 1) == '\0'))
         break;
 
     if (!*ppdptr)
@@ -5638,12 +5642,24 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
 
   for (ptr = name, end = name + namesize - 1; *ppd && ptr < end; ppd ++)
   {
-    if (_cups_isalnum(*ppd) || *ppd == '-')
+    if (_cups_isalnum(*ppd))
+    {
       *ptr++ = (char)tolower(*ppd & 255);
-    else if (strchr(dashchars, *ppd))
-      *ptr++ = '-';
+      nodash = 0;
+    }
+    else if (*ppd == '-' || strchr(dashchars, *ppd))
+    {
+      if (nodash == 0)
+      {
+	*ptr++ = '-';
+	nodash = 1;
+      }
+    }
     else
+    {
       *ptr++ = *ppd;
+      nodash = 0;
+    }
 
     /*
      * We might be looking at the end of our allotted rope. Break out
@@ -5653,17 +5669,28 @@ pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
     {
       break;
     }
-    if (!_cups_isupper(*ppd) && _cups_isalnum(*ppd) &&
-	_cups_isupper(ppd[1]))
-      *ptr++ = '-';
-    else if (!isdigit(*ppd & 255) && isdigit(ppd[1] & 255))
+    if (nodash == 0)
     {
-      if (!exempt_x_dot && (*ppd == 'x' || *ppd == '.'))
+      if (!_cups_isupper(*ppd) && _cups_isalnum(*ppd) &&
+          _cups_isupper(ppd[1]))
       {
         *ptr++ = '-';
+        nodash = 1;
+      }
+      else if (!isdigit(*ppd & 255) && isdigit(ppd[1] & 255))
+      {
+        if (!exempt_x_dot && (*ppd == 'x' || *ppd == '.'))
+        {
+          *ptr++ = '-';
+          nodash = 1;
+        }
       }
     }
   }
+
+  /* Remove trailing dashes */
+  while (ptr > name && *(ptr - 1) == '-')
+    ptr --;
 
   *ptr = '\0';
 }
