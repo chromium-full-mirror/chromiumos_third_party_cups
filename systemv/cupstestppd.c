@@ -1806,7 +1806,7 @@ check_constraints(ppd_file_t *ppd,	/* I - PPD file */
         continue;
       }
 
-      cupsArraySave(ppd->sorted_attrs);
+      stlMultisetSave(ppd->sorted_attrs);
 
       if (constattr->spec[0] &&
           !ppdFindAttr(ppd, "cupsUIResolver", constattr->spec))
@@ -1822,7 +1822,7 @@ check_constraints(ppd_file_t *ppd,	/* I - PPD file */
 	  errors ++;
       }
 
-      cupsArrayRestore(ppd->sorted_attrs);
+      stlMultisetRestore(ppd->sorted_attrs);
 
       num_options = 0;
       options     = NULL;
