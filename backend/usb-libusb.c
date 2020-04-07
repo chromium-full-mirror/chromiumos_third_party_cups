@@ -681,6 +681,9 @@ close_device(usb_printer_t *printer)	/* I - Printer */
   struct libusb_config_descriptor *confptr;
                                         /* Pointer to current configuration */
 
+  if (printer == NULL) {
+    return -1;
+  }
 
   if (printer->handle)
   {
