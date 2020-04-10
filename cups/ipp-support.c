@@ -817,6 +817,7 @@ ippAttributeString(
           break;
 
       case IPP_TAG_STRING :
+          if (!val->unknown.data) { break; }
           for (ptr = val->unknown.data, end = ptr + val->unknown.length;
                ptr < end; ptr ++)
           {
