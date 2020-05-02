@@ -264,7 +264,7 @@ apple_init_profile(
     * Find localized names for the color profiles...
     */
 
-    cupsArraySave(ppd->sorted_attrs);
+    stlMultisetSave(ppd->sorted_attrs);
 
     for (language = (char *)cupsArrayFirst(languages);
 	 language;
@@ -297,7 +297,7 @@ apple_init_profile(
       }
     }
 
-    cupsArrayRestore(ppd->sorted_attrs);
+    stlMultisetRestore(ppd->sorted_attrs);
   }
 
  /*
@@ -494,7 +494,7 @@ apple_register_profiles(
 	                   cupsdLogFCMessage, p))
 	  iccfile[0] = '\0';
 
-	cupsArraySave(ppd->sorted_attrs);
+	stlMultisetSave(ppd->sorted_attrs);
 
 	if ((profileid_attr = ppdFindAttr(ppd, "cupsProfileID",
 					  attr->spec)) != NULL &&
@@ -503,7 +503,7 @@ apple_register_profiles(
 	else
 	  profile_id = _ppdHashName(attr->spec);
 
-	cupsArrayRestore(ppd->sorted_attrs);
+	stlMultisetRestore(ppd->sorted_attrs);
 
 	profile = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
 					    &kCFTypeDictionaryKeyCallBacks,

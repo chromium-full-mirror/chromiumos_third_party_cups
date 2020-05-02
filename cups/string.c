@@ -15,6 +15,7 @@
 #define _CUPS_STRING_C_
 #include "cups-private.h"
 #include "debug-internal.h"
+#include "stl_wrapper.h"
 #include <stddef.h>
 #include <limits.h>
 
@@ -25,7 +26,7 @@
 
 static _cups_mutex_t	sp_mutex = _CUPS_MUTEX_INITIALIZER;
 					/* Mutex to control access to pool */
-static cups_array_t	*stringpool = NULL;
+static stl_multiset_t	stringpool = { NULL };
 					/* Global string pool */
 
 
@@ -86,10 +87,10 @@ _cupsStrAlloc(const char *s)		/* I - String */
 
   _cupsMutexLock(&sp_mutex);
 
-  if (!stringpool)
-    stringpool = cupsArrayNew((cups_array_func_t)compare_sp_items, NULL);
+  if (!stringpool.ptr)
+    stlMultisetNew(&stringpool, (cups_array_func_t)compare_sp_items);
 
-  if (!stringpool)
+  if (!stringpool.ptr)
   {
     _cupsMutexUnlock(&sp_mutex);
     free(key);
@@ -100,7 +101,7 @@ _cupsStrAlloc(const char *s)		/* I - String */
   * See if the string is already in the pool...
   */
 
-  if ((item = (_cups_sp_item_t *)cupsArrayFind(stringpool, key)) != NULL)
+  if ((item = (_cups_sp_item_t *)stlMultisetFind(stringpool, key)) != NULL)
   {
    /*
     * Found it, return the cached string...
@@ -126,7 +127,7 @@ _cupsStrAlloc(const char *s)		/* I - String */
   * Not found, so add the string to the pool and return it...
   */
 
-  cupsArrayAdd(stringpool, key);
+  stlMultisetAdd(stringpool, key);
 
   _cupsMutexUnlock(&sp_mutex);
 
@@ -178,17 +179,16 @@ _cupsStrFlush(void)
 
 
   DEBUG_printf(("4_cupsStrFlush: %d strings in array",
-                cupsArrayCount(stringpool)));
+                stlMultisetCount(stringpool)));
 
   _cupsMutexLock(&sp_mutex);
 
-  for (item = (_cups_sp_item_t *)cupsArrayFirst(stringpool);
+  for (item = (_cups_sp_item_t *)stlMultisetFirst(stringpool);
        item;
-       item = (_cups_sp_item_t *)cupsArrayNext(stringpool))
+       item = (_cups_sp_item_t *)stlMultisetNext(stringpool))
     free(item);
 
-  cupsArrayDelete(stringpool);
-  stringpool = NULL;
+  stlMultisetDelete(&stringpool);
 
   _cupsMutexUnlock(&sp_mutex);
 }
@@ -300,7 +300,7 @@ _cupsStrFree(const char *s)		/* I - String to free */
   * work if it is initialized before we lock...
   */
 
-  if (!stringpool)
+  if (!stringpool.ptr)
     return;
 
   /*
@@ -317,7 +317,7 @@ _cupsStrFree(const char *s)		/* I - String to free */
 
   _cupsMutexLock(&sp_mutex);
 
-  if ((item = (_cups_sp_item_t *)cupsArrayFind(stringpool, key)) != NULL &&
+  if ((item = (_cups_sp_item_t *)stlMultisetFind(stringpool, key)) != NULL &&
       item->str == s)
   {
    /*
@@ -340,7 +340,7 @@ _cupsStrFree(const char *s)		/* I - String to free */
       * Remove and free...
       */
 
-      cupsArrayRemove(stringpool, item);
+      stlMultisetRemove(stringpool, item);
 
       free(item);
     }
@@ -550,9 +550,9 @@ _cupsStrStatistics(size_t *alloc_bytes,	/* O - Allocated bytes */
   _cupsMutexLock(&sp_mutex);
 
   for (count = 0, abytes = 0, tbytes = 0,
-           item = (_cups_sp_item_t *)cupsArrayFirst(stringpool);
+           item = (_cups_sp_item_t *)stlMultisetFirst(stringpool);
        item;
-       item = (_cups_sp_item_t *)cupsArrayNext(stringpool))
+       item = (_cups_sp_item_t *)stlMultisetNext(stringpool))
   {
    /*
     * Count allocated memory, using a 64-bit aligned buffer as a basis.

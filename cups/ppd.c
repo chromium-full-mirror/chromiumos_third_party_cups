@@ -201,7 +201,7 @@ ppdClose(ppd_file_t *ppd)		/* I - PPD file record */
     free(ppd->attrs);
   }
 
-  cupsArrayDelete(ppd->sorted_attrs);
+  stlMultisetDelete(&ppd->sorted_attrs);
 
  /*
   * Free custom options...
@@ -2364,18 +2364,22 @@ ppd_add_attr(ppd_file_t *ppd,		/* I - PPD file data */
   * Create the array as needed...
   */
 
-  if (!ppd->sorted_attrs)
-    ppd->sorted_attrs = cupsArrayNew((cups_array_func_t)ppd_compare_attrs,
-                                     NULL);
+  if (!ppd->sorted_attrs.ptr)
+    stlMultisetNew(&ppd->sorted_attrs, (cups_array_func_t)ppd_compare_attrs);
 
  /*
   * Allocate memory for the new attribute...
   */
 
-  if (ppd->num_attrs == 0)
+  /* We fire realloc <=> the number of elements reach power of 2. */
+  if (ppd->num_attrs == 0) {
     ptr = malloc(sizeof(ppd_attr_t *));
-  else
-    ptr = realloc(ppd->attrs, (size_t)(ppd->num_attrs + 1) * sizeof(ppd_attr_t *));
+  } else if (((unsigned)(ppd->num_attrs) & (unsigned)(ppd->num_attrs-1)) == 0u) {
+    /* This condition fires <=> the bit representation has exactly one bit. */
+    ptr = realloc(ppd->attrs, (size_t)(2 * ppd->num_attrs) * sizeof(ppd_attr_t *));
+  } else {
+    ptr = ppd->attrs;
+  }
 
   if (ptr == NULL)
     return (NULL);
@@ -2411,7 +2415,7 @@ ppd_add_attr(ppd_file_t *ppd,		/* I - PPD file data */
   * Add the attribute to the sorted array...
   */
 
-  cupsArrayAdd(ppd->sorted_attrs, temp);
+  stlMultisetAdd(ppd->sorted_attrs, temp);
 
  /*
   * Return the attribute...
