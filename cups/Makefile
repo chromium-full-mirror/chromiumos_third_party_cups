@@ -50,6 +50,7 @@ COREOBJS	=	\
 		raster-stubs.o \
 		request.o \
 		snprintf.o \
+		stl_wrapper.o \
 		string.o \
 		tempfile.o \
 		thread.o \
@@ -129,6 +130,7 @@ COREHEADERS	=	\
 		language.h \
 		pwg.h \
 		raster.h \
+		stl_wrapper.h \
 		transcode.h \
 		versioning.h
 
@@ -369,7 +371,7 @@ uninstall:
 
 libcups.so.2:	$(LIBOBJS)
 	echo Linking $@...
-	$(DSO) $(ARCHFLAGS) $(ALL_DSOFLAGS) -o $@ $(LIBOBJS) $(LIBS)
+	$(DSOXX) $(ARCHFLAGS) $(ALL_DSOFLAGS) -o $@ $(LIBOBJS) $(LIBS)
 	$(RM) `basename $@ .2`
 	$(LN) $@ `basename $@ .2`
 
@@ -380,7 +382,7 @@ libcups.so.2:	$(LIBOBJS)
 
 libcups.2.dylib:	$(LIBOBJS)
 	echo Linking $@...
-	$(DSO) $(ARCHFLAGS) $(ALL_DSOFLAGS) -o $@ \
+	$(DSOXX) $(ARCHFLAGS) $(ALL_DSOFLAGS) -o $@ \
 		-install_name $(libdir)/$@ \
 		-current_version 2.14.0 \
 		-compatibility_version 2.0.0 \
@@ -435,7 +437,7 @@ libcups2.def: $(LIBOBJS) $(IMAGEOBJS) Makefile
 
 libcupsimage.so.2:	$(IMAGEOBJS) libcups.so.2
 	echo Linking $@...
-	$(DSO) $(ARCHFLAGS) $(ALL_DSOFLAGS) -o $@ $(IMAGEOBJS) $(LINKCUPS)
+	$(DSOXX) $(ARCHFLAGS) $(ALL_DSOFLAGS) -o $@ $(IMAGEOBJS) $(LINKCUPS)
 	$(RM) `basename $@ .2`
 	$(LN) $@ `basename $@ .2`
 
@@ -446,7 +448,7 @@ libcupsimage.so.2:	$(IMAGEOBJS) libcups.so.2
 
 libcupsimage.2.dylib:	$(IMAGEOBJS) libcups.2.dylib
 	echo Linking $@...
-	$(DSO) $(ARCHFLAGS) $(ALL_DSOFLAGS) -o $@ \
+	$(DSOXX) $(ARCHFLAGS) $(ALL_DSOFLAGS) -o $@ \
 		-install_name $(libdir)/$@ \
 		-current_version 2.3.0 \
 		-compatibility_version 2.0.0 \
@@ -462,7 +464,7 @@ libcupsimage.2.dylib:	$(IMAGEOBJS) libcups.2.dylib
 
 libcupsimage.la:       $(IMAGEOBJS) libcups.la
 	echo Linking $@...
-	$(DSO) $(ARCHFLAGS) $(ALL_DSOFLAGS) -o $@ $(IMAGEOBJS:.o=.lo) \
+	$(DSOXX) $(ARCHFLAGS) $(ALL_DSOFLAGS) -o $@ $(IMAGEOBJS:.o=.lo) \
 		$(LINKCUPS) -rpath $(LIBDIR) -version-info 2:3
 
 

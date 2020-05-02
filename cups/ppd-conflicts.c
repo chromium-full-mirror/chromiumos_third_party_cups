@@ -215,7 +215,7 @@ cupsResolveConflicts(
   * Loop until we have no conflicts...
   */
 
-  cupsArraySave(ppd->sorted_attrs);
+  stlMultisetSave(ppd->sorted_attrs);
 
   resolvers = NULL;
   pass      = cupsArrayNew((cups_array_func_t)_cups_strcasecmp, NULL);
@@ -526,7 +526,7 @@ cupsResolveConflicts(
   cupsArrayDelete(pass);
   cupsArrayDelete(resolvers);
 
-  cupsArrayRestore(ppd->sorted_attrs);
+  stlMultisetRestore(ppd->sorted_attrs);
 
   DEBUG_printf(("1cupsResolveConflicts: Returning %d options:", num_newopts));
 #ifdef DEBUG
@@ -549,7 +549,7 @@ cupsResolveConflicts(
   cupsArrayDelete(pass);
   cupsArrayDelete(resolvers);
 
-  cupsArrayRestore(ppd->sorted_attrs);
+  stlMultisetRestore(ppd->sorted_attrs);
 
   DEBUG_puts("1cupsResolveConflicts: Unable to resolve conflicts!");
 

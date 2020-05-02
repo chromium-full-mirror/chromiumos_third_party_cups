@@ -1333,9 +1333,9 @@ main(int  argc,				/* I - Number of command-line arguments */
 
       puts("\nAttributes:");
 
-      for (attr = (ppd_attr_t *)cupsArrayFirst(ppd->sorted_attrs);
+      for (attr = (ppd_attr_t *)stlMultisetFirst(ppd->sorted_attrs);
            attr;
-	   attr = (ppd_attr_t *)cupsArrayNext(ppd->sorted_attrs))
+	   attr = (ppd_attr_t *)stlMultisetNext(ppd->sorted_attrs))
         printf("    *%s %s/%s: \"%s\"\n", attr->name, attr->spec,
 	       attr->text, attr->value ? attr->value : "");
 
