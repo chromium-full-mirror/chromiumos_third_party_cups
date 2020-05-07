@@ -2520,11 +2520,10 @@ ipp_col_string(ipp_t  *col,		/* I - Collection attribute */
                char   *buffer,		/* I - Buffer or NULL */
                size_t bufsize)		/* I - Size of buffer */
 {
-  char			*bufptr,	/* Position in buffer */
-			*bufend,	/* End of buffer */
-			prefix = '{',	/* Prefix character */
+  char			prefix = '{',	/* Prefix character */
 			temp[256];	/* Temporary string */
   ipp_attribute_t	*attr;		/* Current member attribute */
+  size_t                bytes_written = 0ULL;
 
 
   if (!col)
@@ -2535,40 +2534,38 @@ ipp_col_string(ipp_t  *col,		/* I - Collection attribute */
     return (0);
   }
 
-  bufptr = buffer;
-  bufend = buffer + bufsize - 1;
-
   for (attr = col->attrs; attr; attr = attr->next)
   {
     if (!attr->name)
       continue;
 
-    if (buffer && bufptr < bufend)
-      *bufptr = prefix;
-    bufptr ++;
+    if (buffer && bytes_written + 1< bufsize)
+      *(buffer + bytes_written) = prefix;
+    bytes_written ++;
     prefix = ' ';
 
-    if (buffer && bufptr < bufend)
-      bufptr += snprintf(bufptr, (size_t)(bufend - bufptr + 1), "%s=", attr->name);
+    if (buffer && bytes_written + 1 < bufsize)
+      bytes_written += (size_t)snprintf(buffer + bytes_written,
+                                        bufsize - bytes_written, "%s=", attr->name);
     else
-      bufptr += strlen(attr->name) + 1;
+      bytes_written += strlen(attr->name) + 1;
 
-    if (buffer && bufptr < bufend)
-      bufptr += ippAttributeString(attr, bufptr, (size_t)(bufend - bufptr + 1));
+    if (buffer && bytes_written + 1 < bufsize)
+      bytes_written += ippAttributeString(attr, buffer + bytes_written, bufsize - bytes_written);
     else
-      bufptr += ippAttributeString(attr, temp, sizeof(temp));
+      bytes_written += ippAttributeString(attr, temp, sizeof(temp));
   }
 
   if (prefix == '{')
   {
-    if (buffer && bufptr < bufend)
-      *bufptr = prefix;
-    bufptr ++;
+    if (buffer && bytes_written + 1 < bufsize)
+      *(buffer + bytes_written) = prefix;
+    bytes_written ++;
   }
 
-  if (buffer && bufptr < bufend)
-    *bufptr = '}';
-  bufptr ++;
+  if (buffer && bytes_written + 1 < bufsize)
+    *(buffer + bytes_written) = '}';
+  bytes_written ++;
 
-  return ((size_t)(bufptr - buffer));
+  return bytes_written;
 }
