@@ -218,6 +218,10 @@ extern const char	*_pwgMediaTypeForType(const char *media_type,
 					      char *name, size_t namesize) _CUPS_PRIVATE;
 extern const char	*_pwgPageSizeForMedia(pwg_media_t *media,
 			                      char *name, size_t namesize) _CUPS_PRIVATE;
+extern int _ppdConvertOptions(ipp_attribute_t *job_attrs,
+                              ipp_attribute_t *option_mappings,
+                              int num_options,
+                              cups_option_t **options);
 
 
 /*
