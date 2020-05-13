@@ -3714,6 +3714,8 @@ get_options(cupsd_job_t *job,		/* I - Job */
   char			*options = NULL;/* Full list of options */
   size_t		optlength = 0;	/* Length of option buffer */
 
+  ipp_attribute_t	*option_mappings;       /* IPP attribute to PPD option mappings */
+
 
  /*
   * Building the options string is harder than it needs to be, but for the
@@ -3726,6 +3728,8 @@ get_options(cupsd_job_t *job,		/* I - Job */
   pc          = job->printer->pc;
   num_pwgppds = 0;
   pwgppds     = NULL;
+
+  option_mappings = NULL;
 
   if (pc &&
       !ippFindAttribute(job->attrs, "com.apple.print.DocumentTicket.PMSpoolFormat", IPP_TAG_ZERO) &&
@@ -3914,6 +3918,17 @@ get_options(cupsd_job_t *job,		/* I - Job */
       cupsdLogJob(job, CUPSD_LOG_DEBUG2, "After mapping finishings %s=%s", pwgppd->name, pwgppd->value);
   }
 
+  if ((option_mappings = ippFindAttribute(job->printer->ppd_attrs,
+                                          "option-mappings",
+                                          IPP_TAG_BEGIN_COLLECTION)) != NULL)
+  {
+    num_pwgppds = _ppdConvertOptions(job->attrs->attrs, option_mappings,
+                                     num_pwgppds, &pwgppds);
+  }
+
+  for (i = num_pwgppds, pwgppd = pwgppds; i > 0; i --, pwgppd ++)
+    cupsdLogJob(job, CUPSD_LOG_DEBUG2, "After option remapping %s=%s", pwgppd->name, pwgppd->value);
+
  /*
   * Map page-delivery values...
   */
@@ -3965,6 +3980,17 @@ get_options(cupsd_job_t *job,		/* I - Job */
 
   for (attr = job->attrs->attrs; attr != NULL; attr = attr->next)
   {
+    if (option_mappings &&
+        (ippFindAttribute(ippGetCollection(option_mappings, 0),
+                          ippGetName(attr),
+                          IPP_TAG_BEGIN_COLLECTION) != NULL))
+    {
+      cupsdLogJob(job, CUPSD_LOG_DEBUG2,
+                  "Skipping attribute %s because it was remapped",
+                  ippGetName(attr));
+      continue;
+    }
+
     if (!strcmp(attr->name, "copies") &&
 	attr->value_tag == IPP_TAG_INTEGER)
     {

@@ -47,6 +47,8 @@ static void	dirty_printer(cupsd_printer_t *p);
 static void	load_ppd(cupsd_printer_t *p);
 static ipp_t	*new_media_col(pwg_size_t *size);
 static void	write_xml_string(cups_file_t *fp, const char *s);
+static void add_job_password_mappings(ipp_t *mappings, ipp_t *ppd_attrs,
+                                      ppd_file_t *ppd);
 
 
 /*
@@ -3899,6 +3901,8 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
 		  "PrintSelfTestPage"
 		};
 
+  ipp_t   *option_mappings;   /* Mappings between IPP attributes and PPD options */
+
 
  /*
   * Check to see if the cache is up-to-date...
@@ -4827,6 +4831,17 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     if (ppdFindAttr(ppd, "APRemoteQueueID", NULL))
       p->type |= CUPS_PRINTER_REMOTE;
 
+   /*
+    * Add the OEM-specific remapped ipp attributes to this printer.
+    */
+
+    option_mappings = ippNew();
+
+    add_job_password_mappings(option_mappings, p->ppd_attrs, ppd);
+
+    ippAddCollection(p->ppd_attrs, IPP_TAG_PRINTER, "option-mappings",
+                     option_mappings);
+
 #ifdef HAVE_APPLICATIONSERVICES_H
    /*
     * Convert the file referenced in APPrinterIconPath to a 128x128 PNG
@@ -5112,4 +5127,114 @@ write_xml_string(cups_file_t *fp,	/* I - File to write to */
 
   if (s > start)
     cupsFilePuts(fp, start);
+}
+
+/*
+ * 'add_job_password_mappings()' - Looks for OEM-specific PIN printing options,
+ *  and, if found, creates a mapping between the IPP job-password attribute and
+ *  the equivalent PPD options. This mapping can be used at print time to
+ *  replace the IPP attribute with PPD-specific options.
+ *  If appropriate OEM PIN printing options are found, the IPP
+ *  job-password-supported is added, with a length determined by the
+ *  OEM ppd custom option.
+ *
+ */
+static void
+add_job_password_mappings(
+    ipp_t *mappings,  /* IO - Collection to add option mappinngs to */
+    ipp_t *ppd_attrs, /* IO - IPP attributes for printer */
+    ppd_file_t *ppd)  /* I  - Printer PPD */
+{
+  ppd_option_t *option;
+  ppd_choice_t *choice;
+  ppd_coption_t *coption;
+  ppd_cparam_t *cparam; /* Custom parameter */
+  ipp_t *mapping = NULL;
+
+
+  /*** HP ***/
+  if (((option = ppdFindOption(ppd, "HPPinPrnt")) != NULL) &&
+      (choice = ppdFindChoice(option, "True")) &&
+      ((coption = ppdFindCustomOption(ppd, "HPDigit")) != NULL) &&
+      ((cparam = ppdFirstCustomParam(coption)) != NULL))
+  {
+    mapping = ippNew();
+
+    /*
+     * HPPinPrint = True
+     */
+    ippAddString(mapping, IPP_TAG_ZERO, IPP_TAG_TEXT, option->keyword, NULL,
+                 choice->choice);
+
+    /*
+     * HPDigit = Custom.1234
+     */
+    ippAddString(mapping, IPP_TAG_ZERO, IPP_TAG_TEXT, coption->keyword, NULL,
+                 "Custom.%s");
+  }
+
+  /* In order for a mapping to be establsihed the code above should have:
+   * a) initialized mapping with the options to be sent to the filter
+   * b) initialized cparam to the PPD param that describes the PIN / password
+   *    requirements.
+   */
+  if (mapping)
+  {
+    if (cparam)
+    {
+      int password_minimum = 0,
+          password_maximum = 0;
+
+      switch (cparam->type) {
+        case PPD_CUSTOM_PASSCODE:
+          password_minimum = cparam->minimum.custom_passcode;
+          password_maximum = cparam->maximum.custom_passcode;
+          break;
+        case PPD_CUSTOM_PASSWORD:
+          password_minimum = cparam->minimum.custom_password;
+          password_maximum = cparam->maximum.custom_password;
+          break;
+        case PPD_CUSTOM_STRING:
+          password_minimum = cparam->minimum.custom_string;
+          password_maximum = cparam->maximum.custom_string;
+          break;
+        default:
+          break;
+      }
+
+      if (password_maximum > 0 && password_maximum < 256 &&
+          password_minimum >= 0 && password_minimum < 256 &&
+          password_minimum <= password_maximum)
+      {
+        /*
+         * Add PIN printing IPP attributes to the printer so that clients think
+         * this device supports the IPP version of PIN printing. The job's
+         * job-password attribute will be converted to the PPD-specific options
+         * at print time.
+         */
+        ippAddString(ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD,
+                     "job-password-encryption-supported", NULL, "none");
+        ippAddInteger(ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_INTEGER,
+                      "job-password-supported", password_maximum);
+        ippAddRange(ppd_attrs, IPP_TAG_PRINTER, "job-password-length-supported",
+                    password_minimum, password_maximum);
+        ippAddCollection(mappings, IPP_TAG_ZERO, "job-password", mapping);
+
+        /*
+         * Since get_options will strip out any IPP attributes that have a
+         * mapping, add an empty mapping for job-password-encryption to prevent it
+         * from being added to the filters when job-password is being remapped.
+         * There is no encryption for OEM-specific PIN options.
+         */
+        mapping = ippNew();
+        ippAddCollection(mappings, IPP_TAG_ZERO, "job-password-encryption",
+                         mapping);
+        /* To avoid freeing below */
+        mapping = NULL;
+      }
+      if (mapping) {
+        ippDelete(mapping);
+      }
+    }
+  }
 }
