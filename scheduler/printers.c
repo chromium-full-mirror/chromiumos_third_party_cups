@@ -5204,6 +5204,99 @@ add_job_password_mappings(
     ippAddString(mapping, IPP_TAG_ZERO, IPP_TAG_TEXT, coption->keyword, NULL,
                  "Custom.%s");
   }
+  /*** Ricoh ***/
+  else if (((option = ppdFindOption(ppd, "JobType")) != NULL) &&
+           ((choice = ppdFindChoice(option, "LockedPrint")) != NULL))
+  {
+    ppd_coption_t *user_id_opt;
+    ppd_cparam_t  *user_id_param;
+
+    /*
+     * While all Ricoh printers use JobType=LockedPrint to indicate PIN
+     * printing, different printers use different custom options to pass the PIN
+     * to the device, so query the PPD to determine the name of the password
+     * option.
+     */
+    if ((((coption = ppdFindCustomOption(ppd, "Password")) != NULL) ||
+         ((coption = ppdFindCustomOption(ppd, "LockedPrintPassword")) != NULL) ||
+         ((coption = ppdFindCustomOption(ppd, "JobPassword")) != NULL)) &&
+        ((cparam = ppdFirstCustomParam(coption)) != NULL))
+    {
+      mapping = ippNew();
+
+      /*
+       * JobType = LockedPrint
+       */
+      ippAddString(mapping, IPP_TAG_ZERO, IPP_TAG_TEXT, option->keyword, NULL,
+                   choice->choice);
+
+      /*
+       * JobPassword = Custom.1234 or
+       * LockedPrintPassword = Custom.1234 or
+       * JobPassword = Custom.1234 or
+       */
+      ippAddString(mapping, IPP_TAG_ZERO, IPP_TAG_TEXT, coption->keyword, NULL,
+                   "Custom.%s");
+    }
+
+    /*
+      * The option name for User ID varies by PPD.
+      */
+    if ((((user_id_opt = ppdFindCustomOption(ppd, "UserId")) != NULL) ||
+          ((user_id_opt = ppdFindCustomOption(ppd, "UserID")) != NULL)) &&
+        ((user_id_param = ppdFirstCustomParam(user_id_opt)) != NULL))
+    {
+      /*
+      * Ricoh printers display the jobs by "User ID" rather than "User Name".
+      * User IDs must be between 1 & 8 characters, and can only contain the
+      * characters "a-z", "A-Z", "0-9", and "-./:_". If the Job ID is longer
+      * than 8 characters it is rejected. The IPP value to use is the
+      * job-originating-user-name, but since that is the full email address of
+      * the user, trim to just the username, then trim that to no more than 8
+      * characters, and replace any illegal characters with '-'.
+      */
+      ipp_t *userid_mapping = ippNew();
+
+      /*
+        * Remove domain from email address so User ID is just username.
+        */
+      ippAddString(userid_mapping, IPP_TAG_ZERO, IPP_TAG_KEYWORD, "_delimiters",
+                   NULL, "@");
+
+      /*
+        * Ricoh specifies that the UserId must be a certain size.
+        */
+      ippAddRange(userid_mapping, IPP_TAG_ZERO, "_constraint",
+                  user_id_param->minimum.custom_string,
+                  user_id_param->maximum.custom_string);
+
+      /*
+        * Only the characters a-z,A-Z,0-9,-./:_ are valid for User ID.
+        */
+      ippAddString(userid_mapping, IPP_TAG_ZERO, IPP_TAG_KEYWORD,
+                   "_valid-chars", NULL,
+                    "abcdefghijklmnopqrstuvwxyz"
+                    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+                    "0123456789"
+                    "-./:_");
+
+      /*
+        * Replace any non-valid characters with "-"
+        */
+      ippAddString(userid_mapping, IPP_TAG_ZERO, IPP_TAG_KEYWORD,
+                    "_replacement-char", NULL, "-");
+
+      /*
+        * UserId = Custom.%s or
+        * UserID = Custom.%s
+        */
+      ippAddString(userid_mapping, IPP_TAG_ZERO, IPP_TAG_TEXT,
+                   user_id_opt->keyword, NULL, "Custom.%s");
+
+      ippAddCollection(mappings, IPP_TAG_ZERO, "job-originating-user-name",
+                        userid_mapping);
+    }
+  }
 
   /* In order for a mapping to be establsihed the code above should have:
    * a) initialized mapping with the options to be sent to the filter
