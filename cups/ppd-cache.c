@@ -59,6 +59,8 @@ static int      pwg_fill_size_trackers(const ppd_file_t *ppd,
 static int      pwg_find_size_tracker(const char *media_name,
                                       const struct pwg_media_size_tracker_s *trackers,
                                       int trackers_length);
+static char *   _ppdGetAttributeValue(ipp_attribute_t *attr);
+static char *   _ppdTransformValue(ipp_t *collection, char *value_buf);
 
 
 /*
@@ -5038,6 +5040,234 @@ cups_get_url(http_t     **http,		/* IO - Current HTTP connection */
 
 
 /*
+ * '_ppdGetAttributeValue()' retrieves the value from attr and converts it to a
+ *  string. Caller is responsible for freeing the returned string when done.
+ */
+static char *               /* O - allocated buffer containing the value */
+_ppdGetAttributeValue(
+  ipp_attribute_t *attr)    /* I - attribute whose value should be retrieved */
+{
+  char *value_buf = NULL;
+  int  value_buf_size;
+
+
+  switch (ippGetValueTag(attr))
+  {
+    case IPP_TAG_INTEGER:
+    {
+      int value = ippGetInteger(attr, 0);
+      value_buf_size = snprintf(NULL, 0, "%d", value);
+      if ((value_buf = (char *)calloc((size_t)++value_buf_size,
+                                      sizeof(char))) == NULL)
+        break;
+      snprintf(value_buf, (size_t)value_buf_size, "%d", value);
+    }
+    break;
+
+    case IPP_TAG_BOOLEAN:
+      {
+        const char *value = ippGetBoolean(attr, 0) ? "True" : "False";
+        value_buf_size = strlen(value);
+        if ((value_buf = (char *)calloc((size_t)++value_buf_size,
+                                        sizeof(char))) == NULL)
+          break;
+        strlcpy(value_buf, value, (size_t)value_buf_size);
+      }
+      break;
+
+    case IPP_TAG_STRING:
+      {
+        char *ptr;
+        if ((ptr = ippGetOctetString(attr, 0, &value_buf_size)) != NULL)
+        {
+          if ((value_buf = (char *)calloc((size_t)(value_buf_size + 1),
+                                          sizeof(char))) != NULL)
+          {
+            strncat(value_buf, ptr, (size_t)value_buf_size);
+          }
+        }
+      }
+      break;
+
+    default:
+      {
+        // See if the value can be decoded as a string. If not, it is not
+        // supported..
+        const char* string;
+        if ((string = ippGetString(attr, 0, NULL)) != NULL)
+        {
+          value_buf_size = strlen(string);
+          if ((value_buf = (char *)calloc((size_t)++value_buf_size,
+                                          sizeof(char))) == NULL)
+            break;
+          strlcpy(value_buf, string, (size_t)value_buf_size);
+        }
+        else
+        {
+          DEBUG_printf((
+              "1_ppdGetAttributeValue: Unsupported attr: name=%s, value_tag=%d",
+              ippGetName(attr), ippGetValueTag(attr)));
+        }
+      }
+      break;
+  }
+
+  return value_buf;
+}
+
+/*
+ * '_ppdTransformValue()' - Applies any necessary transformations to the IPP
+ *  value to make it acceptable to the PPD. Any attribute in |collection| that
+ *  begins with '_' is considered to be a transformation attribute, the name
+ *  indicating the type of transformation. This function will take ownership of
+ *  |value_buf|, but the caller is responsible for the lifecycle of the return
+ *  value.
+ */
+static char *                  /* O - allocated buffer containing the value */
+_ppdTransformValue(
+  ipp_t *collection,           /* I - transformations to perform */
+  char  *value_buf)            /* I - buffer to be transformed. Not valid
+                                *     after call completes. */
+{
+  ipp_attribute_t *option;
+
+
+  for (option = ippFirstAttribute(collection);
+       option;
+       option = ippNextAttribute(collection))
+  {
+    const char *option_name = ippGetName(option);
+
+
+    // Skip the actual option attributes.
+    if (option_name[0] != '_')
+      continue;
+
+    if (!strcmp(option_name, "_delimiters"))
+    {
+      const char *delimiters = ippGetString(option, 0, NULL);
+      char       *p = strpbrk(value_buf, delimiters);
+
+      if (p)
+        *p = '\0';
+    }
+    else if (!strcmp(option_name, "_constraint"))
+    {
+      int max,
+          min = ippGetRange(option, 0, &max);
+
+
+      if (strlen(value_buf) < min)
+      {
+        // If the supplied value is too small, then we can't convert this value,
+        // so don't pass it to the filters.
+        DEBUG_printf(("1_ppdTransformValue: %s is shorter than %d", value_buf,
+                      min));
+        free (value_buf);
+        return NULL;
+      }
+      else if (strlen(value_buf) > max)
+      {
+        // Truncate the value at the length allowed.
+        value_buf[max] = '\0';
+      }
+    }
+    else if (!strcmp(option_name, "_valid-chars"))
+    {
+      ipp_attribute_t *replacement_attr;
+      const char      *replacement_char;
+
+
+      if (((replacement_attr = ippFindAttribute(collection,
+                                                "_replacement-char",
+                                                IPP_TAG_KEYWORD)) != NULL) &&
+          ((replacement_char = ippGetString(replacement_attr, 0,
+                                            NULL)) != NULL) &&
+          (strlen(replacement_char) == 1))
+      {
+        const char *valid_chars = ippGetString(option, 0, NULL);
+        int         i,
+                    len = strlen(value_buf);
+
+
+        for (i = 0; i < len; ++i)
+        {
+          if (strchr(valid_chars, value_buf[i]) == NULL)
+          {
+            // Invalid character. Replace it with the replacement char.
+            value_buf[i] = replacement_char[0];
+          }
+        }
+      }
+      else
+      {
+        DEBUG_printf(
+            ("1_ppdTransformValue: Can't apply _valid_chars attribute because "
+             "no _replacement-char found"));
+        free(value_buf);
+        return NULL;
+      }
+    }
+    else if (!strcmp(option_name, "_replacement-char"))
+    {
+      // Just skip this one - it's handled in _valid-chars above.
+      continue;
+    }
+    else if (!strcmp(option_name, "_mapping"))
+    {
+      /*
+       * Collection of the IPP -> PPD value mappings.
+       */
+      ipp_t *enum_collection = ippGetCollection(option, 0);
+      if (enum_collection)
+      {
+        const char      *option_val;
+        ipp_attribute_t *option_attr;
+
+
+        if (((option_attr = ippFindAttribute(enum_collection, value_buf,
+                                             IPP_TAG_KEYWORD)) != NULL) &&
+            ((option_val = ippGetString(option_attr, 0, NULL)) != NULL)) {
+          /*
+           * Replace the IPP string with the PPD string.
+           */
+          size_t new_size = (strlen(option_val) + 1) * sizeof(char);
+          if ((value_buf = (char *)realloc(value_buf, new_size)) == NULL)
+          {
+            free(value_buf);
+            return NULL;
+          }
+          strcpy(value_buf, option_val);
+        }
+        else
+        {
+          ipp_attribute_t *enum_attr;
+          DEBUG_printf(("1_ppdTransformValue: No mapping found for %s",
+                        value_buf));
+
+          free(value_buf);
+          return NULL;
+        }
+      } else {
+        DEBUG_printf(
+            ("1_ppdTransformValue: No collection found in option: name=%s, "
+             "value_tag=%d", ippGetName(option), ippGetValueTag(option)));
+        free(value_buf);
+        return NULL;
+      }
+    }
+    else
+    {
+      DEBUG_printf(
+          ("1_ppdTransformValue: unknown transformation. attr: name=%s, "
+           "value_tag=%d", ippGetName(option), ippGetValueTag(option)));
+    }
+  }
+
+  return value_buf;
+}
+
+/*
  * '_ppdConvertOptions()' - Converts the relevant ipp attributes found in
  *  |job_attrs| to PPD options suitable for sending to a filter, using
  *  |option_mappings| to determine which attribute should be converted, and to
@@ -5077,84 +5307,29 @@ _ppdConvertOptions(
                                     ippGetName(attr),
                                     IPP_TAG_BEGIN_COLLECTION)) != NULL)
     {
-      char *value_buf = NULL;
-      int  value_buf_size;
-
-
       /*
        * Since a mapping was found for this IPP attribute, convert the value
        * of the attribute to a string. This is so it can be added to the mapping
        * option values below. Do this IPP value -> string conversion only once,
        * though, since the mapping may contain several OEM-specific options.
        */
+      char            *value_buf;
+      ipp_attribute_t *option;
+      ipp_t           *collection = ippGetCollection(mapping, 0);
+
+
+      if ((value_buf = _ppdGetAttributeValue(attr)) == NULL)
+        continue;
+
+      DEBUG_printf(("3_ppdConvertOptions: attr(%s)=%s",ippGetName(attr),
+                    value_buf));
+
+      if ((value_buf = _ppdTransformValue(collection, value_buf)) == NULL)
+        continue;
+
       DEBUG_printf(
-          ("3_ppdConvertOptions: Found mapping for attr: name=%s, value_tag=%d",
-           ippGetName(attr), ippGetValueTag(attr)));
-      switch (ippGetValueTag(attr))
-      {
-        case IPP_TAG_INTEGER:
-        {
-          int value = ippGetInteger(attr, 0);
-          value_buf_size = snprintf(NULL, 0, "%d", value);
-          if ((value_buf = (char *)calloc((size_t)++value_buf_size,
-                                          sizeof(char))) == NULL)
-            continue;
-          snprintf(value_buf, (size_t)value_buf_size, "%d", value);
-        }
-        break;
-
-        case IPP_TAG_BOOLEAN:
-          {
-            const char *value = ippGetBoolean(attr, 0) ? "True" : "False";
-            value_buf_size = strlen(value);
-            if ((value_buf = (char *)calloc((size_t)++value_buf_size,
-                                            sizeof(char))) == NULL)
-              continue;
-            strlcpy(value_buf, value, (size_t)value_buf_size);
-          }
-          break;
-
-        case IPP_TAG_STRING:
-          {
-            char *ptr;
-            if ((ptr = ippGetOctetString(attr, 0, &value_buf_size)) != NULL) {
-              if ((value_buf = (char *)calloc((size_t)(value_buf_size + 1),
-                                              sizeof(char))) != NULL) {
-                strncat(value_buf, ptr, (size_t)value_buf_size);
-              }
-            }
-          }
-          break;
-
-        default:
-          {
-            // See if the value can be decoded as a string. If not, it is not
-            // supported..
-            const char* string;
-            if ((string = ippGetString(attr, 0, NULL)) != NULL) {
-              value_buf_size = strlen(string);
-              if ((value_buf = (char *)calloc((size_t)++value_buf_size,
-                                              sizeof(char))) == NULL)
-                continue;
-              strlcpy(value_buf, string, (size_t)value_buf_size);
-            } else {
-              DEBUG_printf((
-                  "_ppdConvertOptions: Unsupported attr: name=%s, value_tag=%d",
-                  ippGetName(attr), ippGetValueTag(attr)));
-              continue;
-            }
-          }
-          break;
-      }
-      if (value_buf)
-      {
-        ipp_attribute_t *option;
-        ipp_t           *collection = ippGetCollection(mapping, 0);
-
-
-        DEBUG_printf(
-            ("2_ppdConvertOptions: attr: name=%s, value_tag=%d, value=%s",
-             ippGetName(attr), ippGetValueTag(attr), value_buf));
+          ("2_ppdConvertOptions: attr: name=%s, value_tag=%d, value=%s",
+            ippGetName(attr), ippGetValueTag(attr), value_buf));
 
         /*
          * Add the IPP attribute value to each of the remapped options. It is
@@ -5166,9 +5341,16 @@ _ppdConvertOptions(
              option;
              option = ippNextAttribute(collection))
         {
-          char *option_value_buf = NULL;
-          const char *option_value_fmt = ippGetString(option, 0, NULL);
-          int option_value_size =
+          char       *option_value_buf = NULL;
+          const char *option_value_fmt;
+          int        option_value_size;
+
+          // Skip the meta attributes.
+          if (ippGetName(option)[0] == '_')
+            continue;
+
+          option_value_fmt = ippGetString(option, 0, NULL);
+          option_value_size =
               snprintf(NULL, 0, option_value_fmt, value_buf);
           if ((option_value_buf = (char *)calloc((size_t)++option_value_size,
                                                  sizeof(char))) == NULL)
@@ -5184,9 +5366,9 @@ _ppdConvertOptions(
         }
 
         free(value_buf);
-      }
     }
   }
+
   return num_options;
 }
 
