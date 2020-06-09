@@ -3444,8 +3444,6 @@ _ppdCreateFromIPP2(
       else
         cupsFilePuts(fp, "*cupsFilter2: \"application/vnd.cups-pdf application/pdf 10 -\"\n");
     }
-    else
-      cupsFilePuts(fp, "*cupsManualCopies: True\n");
     if (is_pwg)
       cupsFilePuts(fp, "*cupsFilter2: \"image/pwg-raster image/pwg-raster 100 -\"\n");
     else if (is_apple)
