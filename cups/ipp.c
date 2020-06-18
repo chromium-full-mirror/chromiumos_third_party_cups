@@ -24,6 +24,10 @@
 #  include <io.h>
 #endif /* WIN32 */
 
+/*
+ * Arbitrarily limits recursion depth of calls to ippReadIO().
+ */
+#define CROS_IPPREADIO_MAX_RECURSION (10)
 
 /*
  * Local functions...
@@ -2979,17 +2983,16 @@ ippReadFile(int   fd,			/* I - HTTP data */
 
 
 /*
- * 'ippReadIO()' - Read data for an IPP message.
- *
- * @since CUPS 1.2/macOS 10.5@
+ * 'ippReadIOLimitedRecursion()' - implements ippReadIO().
  */
-
-ipp_state_t				/* O - Current state */
-ippReadIO(void       *src,		/* I - Data source */
-          ipp_iocb_t cb,		/* I - Read callback function */
-	  int        blocking,		/* I - Use blocking IO? */
-	  ipp_t      *parent,		/* I - Parent request, if any */
-          ipp_t      *ipp)		/* I - IPP data */
+static ipp_state_t			/* O - Current state */
+ippReadIOLimitedRecursion(
+	void       *src,		/* I - Data source */
+	ipp_iocb_t cb,			/* I - Read callback function */
+	int        blocking,		/* I - Use blocking IO? */
+	unsigned int depth,		/* I - Current recursion depth */
+	ipp_t      *parent,		/* I - Parent request, if any */
+	ipp_t      *ipp)		/* I - IPP data */
 {
   int			n;		/* Length of data */
   unsigned char		*buffer,	/* Data buffer */
@@ -3005,7 +3008,7 @@ ippReadIO(void       *src,		/* I - Data source */
   DEBUG_printf(("ippReadIO(src=%p, cb=%p, blocking=%d, parent=%p, ipp=%p)", (void *)src, (void *)cb, blocking, (void *)parent, (void *)ipp));
   DEBUG_printf(("2ippReadIO: ipp->state=%d", ipp ? ipp->state : IPP_STATE_ERROR));
 
-  if (!src || !ipp)
+  if (!src || !ipp || depth > CROS_IPPREADIO_MAX_RECURSION)
     return (IPP_STATE_ERROR);
 
   if ((buffer = (unsigned char *)_cupsBufferGet(IPP_BUF_SIZE)) == NULL)
@@ -3627,7 +3630,7 @@ ippReadIO(void       *src,		/* I - Data source */
 		  return (IPP_STATE_ERROR);
 		}
 
-		if (ippReadIO(src, cb, 1, ipp, value->collection) == IPP_STATE_ERROR)
+		if (ippReadIOLimitedRecursion(src, cb, 1, depth+1, ipp, value->collection) == IPP_STATE_ERROR)
 		{
 	          DEBUG_puts("1ippReadIO: Unable to read collection value.");
 		  _cupsBufferRelease((char *)buffer);
@@ -3751,6 +3754,23 @@ ippReadIO(void       *src,		/* I - Data source */
   _cupsBufferRelease((char *)buffer);
 
   return (ipp->state);
+}
+
+
+/*
+ * 'ippReadIO()' - Read data for an IPP message.
+ *
+ * @since CUPS 1.2/macOS 10.5@
+ */
+
+ipp_state_t				/* O - Current state */
+ippReadIO(void       *src,		/* I - Data source */
+          ipp_iocb_t cb,		/* I - Read callback function */
+	  int        blocking,		/* I - Use blocking IO? */
+	  ipp_t      *parent,		/* I - Parent request, if any */
+          ipp_t      *ipp)		/* I - IPP data */
+{
+  return ippReadIOLimitedRecursion(src, cb, blocking, 0, parent, ipp);
 }
 
 
