@@ -1257,6 +1257,11 @@ get_printer_ppd(
     return (NULL);
   }
 
+  // Allow printers up to 15 seconds to respond since some can be quite slow
+  // to initialize.  Anecdotally, we see printers take up to 10 seconds to
+  // start.
+  httpSetTimeout(http, 15, NULL, NULL);
+
  /*
   * Send a Get-Printer-Attributes request...
   */
