@@ -5297,6 +5297,18 @@ add_job_password_mappings(
                         userid_mapping);
     }
   }
+  /*** Lexmark ***/
+  else if (((coption = ppdFindCustomOption(ppd, "PnH")) != NULL) &&
+           ((cparam = ppdFirstCustomParam(coption)) != NULL))
+  {
+    mapping = ippNew();
+
+    /*
+     * PnH = Custom.1234
+     */
+    ippAddString(mapping, IPP_TAG_ZERO, IPP_TAG_TEXT, coption->keyword, NULL,
+                 "Custom.%s");
+  }
 
   /* In order for a mapping to be establsihed the code above should have:
    * a) initialized mapping with the options to be sent to the filter
