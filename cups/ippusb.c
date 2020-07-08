@@ -124,7 +124,7 @@ char* get_message(int fd) {
 }
 
 char* query_ippusb_manager(int fd, const char* msg) {
-  _cupsLangPrintf(stderr, _("Attempting to write to socket"));
+  _cupsLangPrintf(stderr, _("Attempting to write to ippusb_manager socket"));
   send_message(fd, msg);
 
   _cupsLangPrintf(stderr, _("Attempting to read response"));
@@ -132,7 +132,7 @@ char* query_ippusb_manager(int fd, const char* msg) {
   _cupsLangPrintf(stderr, _("Finished reading response"));
 
   if (!valid_response(response)) {
-    _cupsLangPrintf(stderr, _("Invalid response"));
+    _cupsLangPrintf(stderr, _("Invalid response: ``%s''"), response);
     _exit(1);
   }
 
