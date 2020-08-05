@@ -5241,7 +5241,6 @@ _ppdTransformValue(
         }
         else
         {
-          ipp_attribute_t *enum_attr;
           DEBUG_printf(("1_ppdTransformValue: No mapping found for %s",
                         value_buf));
 
