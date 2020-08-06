@@ -4050,11 +4050,17 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	      break;
 
 	  case IPP_TAG_RESOLUTION :
-	      snprintf(optptr, optlength - (size_t)(optptr - options) - 1,
-	               "%dx%d%s", attr->values[i].resolution.xres,
-		       attr->values[i].resolution.yres,
-		       attr->values[i].resolution.units == IPP_RES_PER_INCH ?
-			   "dpi" : "dpcm");
+	      if (attr->values[i].resolution.xres == attr->values[i].resolution.yres)
+	        snprintf(optptr, optlength - (size_t)(optptr - options) - 1,
+			 "%d%s", attr->values[i].resolution.xres,
+			 attr->values[i].resolution.units == IPP_RES_PER_INCH ?
+			     "dpi" : "dpcm");
+	      else 
+	        snprintf(optptr, optlength - (size_t)(optptr - options) - 1,
+			 "%dx%d%s", attr->values[i].resolution.xres,
+			 attr->values[i].resolution.yres,
+			 attr->values[i].resolution.units == IPP_RES_PER_INCH ?
+			     "dpi" : "dpcm");
 	      break;
 
           case IPP_TAG_STRING :
