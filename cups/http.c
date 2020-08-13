@@ -2976,6 +2976,7 @@ httpUpdate(http_t *http)		/* I - HTTP connection */
   {
     DEBUG_printf(("1httpUpdate: socket error %d - %s", http->error,
                   strerror(http->error)));
+    errno = http->error;
     http->status = HTTP_STATUS_ERROR;
     return (HTTP_STATUS_ERROR);
   }
