@@ -2994,7 +2994,7 @@ ippReadIOLimitedRecursion(
 	ipp_t      *parent,		/* I - Parent request, if any */
 	ipp_t      *ipp)		/* I - IPP data */
 {
-  int			n;		/* Length of data */
+  int			n, buffer_length;		/* Length of data */
   unsigned char		*buffer,	/* Data buffer */
 			string[IPP_MAX_TEXT],
 					/* Small string buffer */
@@ -3370,6 +3370,7 @@ ippReadIOLimitedRecursion(
 	    _cupsBufferRelease((char *)buffer);
 	    return (IPP_STATE_ERROR);
 	  }
+	  buffer_length = n;
 
 	  switch (tag)
 	  {
@@ -3535,7 +3536,7 @@ ippReadIOLimitedRecursion(
 
 	    case IPP_TAG_TEXTLANG :
 	    case IPP_TAG_NAMELANG :
-	        if (n < 4)
+	        if (buffer_length < 4)
 		{
 		  if (tag == IPP_TAG_TEXTLANG)
 		    _cupsSetError(IPP_STATUS_ERROR_INTERNAL,
@@ -3546,12 +3547,12 @@ ippReadIOLimitedRecursion(
 		                  _("IPP nameWithLanguage value less than "
 		                    "minimum 4 bytes."), 1);
 		  DEBUG_printf(("1ippReadIO: bad stringWithLanguage value "
-		                "length %d.", n));
+		                "length %d.", buffer_length));
 		  _cupsBufferRelease((char *)buffer);
 		  return (IPP_STATE_ERROR);
 		}
 
-	        if ((*cb)(src, buffer, (size_t)n) < n)
+	        if ((*cb)(src, buffer, (size_t)buffer_length) < buffer_length)
 		{
 	          DEBUG_puts("1ippReadIO: Unable to read string w/language "
 		             "value.");
@@ -3571,9 +3572,15 @@ ippReadIOLimitedRecursion(
 		*    text
 		*/
 
+
+		const char * const buffer_end_ptr = buffer + buffer_length;
+
 		n = (bufptr[0] << 8) | bufptr[1];
 
-		if ((bufptr + 2 + n) >= (buffer + IPP_BUF_SIZE) || n >= (int)sizeof(string))
+		/* make sure that bufptr is large enough to contain:
+		 * language-length (2 bytes), language (n bytes) and text-length (2 bytes)
+		 */
+		if ((bufptr + 2 + n + 2) > buffer_end_ptr || n >= (int)sizeof(string))
 		{
 		  _cupsSetError(IPP_STATUS_ERROR_INTERNAL,
 		                _("IPP language length overflows value."), 1);
@@ -3598,9 +3605,12 @@ ippReadIOLimitedRecursion(
 		value->string.language = _cupsStrAlloc((char *)string);
 
                 bufptr += 2 + n;
+		/* there are still two fields ahead: text-length (2 bytes)
+		 * and text (n bytes).
+		 */
 		n = (bufptr[0] << 8) | bufptr[1];
 
-		if ((bufptr + 2 + n) >= (buffer + IPP_BUF_SIZE))
+		if ((bufptr + 2 + n) > buffer_end_ptr)
 		{
 		  _cupsSetError(IPP_STATUS_ERROR_INTERNAL,
 		                _("IPP string length overflows value."), 1);
