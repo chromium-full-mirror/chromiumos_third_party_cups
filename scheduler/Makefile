@@ -53,8 +53,12 @@ COBJS	=	\
 		testspeed.o \
 		testsub.o \
 		util.o
+CXXOBJS	=	\
+		googletests.o \
+		cupsd_unittest.o
 OBJS	=	\
 		$(COBJS) \
+		$(CXXOBJS) \
 		$(LD_CXXOBJS)
 LIBTARGETS =	\
 		$(LIBCUPSMIME) \
@@ -69,11 +73,16 @@ UNITTARGETS =	\
 PROGRAMS =	\
 		cupsd \
 		cupsfilter \
-		cups-exec \
+		cups-exec
 
 TARGETS	=	\
 		$(LIBTARGETS) \
 		$(PROGRAMS)
+
+GTEST_FILES = 	$(subst main.o, fakemain.o, $(CUPSDOBJS)) \
+		$(CXXOBJS) \
+		libcupsmime.a \
+		../cups/$(LIBCUPSSTATIC)
 
 
 #
@@ -430,6 +439,25 @@ libcupsmime.a:	$(LIBOBJS)
 	$(RM) $@
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS)
 	$(RANLIB) $@
+
+
+#
+# Make the google unit tests, "googletests"
+#
+
+fakemain.o:	main.o
+	$(CC) $(ALL_CFLAGS) -c -o fakemain.o -D main=fake_main main.c
+
+googletests:	PC_DEPS = gtest libchrome-$(BASE_VER) libbrillo
+googletests:	PC_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(PC_DEPS))
+googletests:	PC_LIBS := $(shell $(PKG_CONFIG) --libs $(PC_DEPS))
+googletests:	CXXFLAGS += $(PC_CFLAGS)
+googletests:	$(GTEST_FILES)
+	echo Linking $@...
+	$(LD_CXX) $(LDFLAGS) -o googletests $(GTEST_FILES) $(PC_LIBS) \
+		$(SSLLIBS) $(LIBSLP) $(LIBLDAP) $(PAMLIBS) $(COMMONLIBS) \
+		$(LIBZ) $(LIBPAPER) $(LIBMALLOC) $(SERVERLIBS) \
+		$(ONDEMANDLIBS) $(DNSSDLIBS) $(LIBGSSAPI) $(LIBWRAP)
 
 
 #
