@@ -150,7 +150,8 @@ int valid_response(const char* response) {
 
   const char* p = response;
   while (*p) {
-    if (!isalpha(*p) && !isdigit(*p) && *p != '_' && *p != '.' && *p != ' ')
+    if (!isalpha(*p) && !isdigit(*p) && *p != '_' && *p != '.' && *p != ' ' &&
+        *p != '-')
       return 0;
     ++p;
   }
