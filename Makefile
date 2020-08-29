@@ -247,18 +247,13 @@ uninstall:
 # Run the test suite...
 #
 
-test:	all unittests
-	echo Running CUPS test suite...
-	cd test; ./run-stp-tests.sh
+.PHONY:	compile-test
+compile-test:	all
+	echo Making google unit tests...
+	cd scheduler && $(MAKE) $(MFLAGS) googletests
 
-
-check:	all unittests
-	echo Running CUPS test suite with defaults...
-	cd test; ./run-stp-tests.sh 1 0 n n
-
-debugcheck:	all unittests
-	echo Running CUPS test suite with debug printfs...
-	cd test; ./run-stp-tests.sh 1 0 n y
+check test:	compile-test
+	./scheduler/googletests
 
 
 #

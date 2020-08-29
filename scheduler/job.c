@@ -123,9 +123,6 @@ static int	compare_jobs(void *first, void *second, void *data);
 static void	dump_job_history(cupsd_job_t *job);
 static void	finalize_job(cupsd_job_t *job, int set_job_state);
 static void	free_job_history(cupsd_job_t *job);
-static char	*get_options(cupsd_job_t *job, int banner_page, char *copies,
-		             size_t copies_size, char *title,
-			     size_t title_size);
 static size_t	ipp_length(ipp_t *ipp);
 static void	load_job_cache(const char *filename);
 static void	load_next_job_id(const char *filename);
@@ -3649,7 +3646,7 @@ finalize_job(cupsd_job_t *job,		/* I - Job */
  * 'get_options()' - Get a string containing the job options.
  */
 
-static char *				/* O - Options string */
+char *					/* O - Options string */
 get_options(cupsd_job_t *job,		/* I - Job */
             int         banner_page,	/* I - Printing a banner page? */
 	    char        *copies,	/* I - Copies buffer */
