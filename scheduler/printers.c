@@ -53,11 +53,6 @@ static ipp_t	*new_media_col(pwg_size_t *size, const char *source,
 static void	write_xml_string(cups_file_t *fp, const char *s);
 static void add_job_password_mappings(ipp_t *mappings, ipp_t *ppd_attrs,
                                       ppd_file_t *ppd);
-static _ipp_value_t	_choiceToResolution(const char *choice);
-static ipp_attribute_t	*_ippAddResolution(ipp_t *ipp, ipp_tag_t group,
-					   const char *name, _ipp_value_t  res);
-static void		add_resolution_mappings(ipp_t *mappings, ipp_t *ppd_attrs,
-						ppd_file_t *ppd, const char *printer_name);
 
 
 /*
@@ -3825,10 +3820,15 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
   ppd_size_t	*size;			/* Current PPD size */
   ppd_option_t	*duplex,		/* Duplex option */
 		*output_bin,		/* OutputBin option */
-		*output_mode;		/* OutputMode option */
-  ppd_choice_t  *input_slot,		/* Current input slot */
+		*output_mode,		/* OutputMode option */
+		*resolution;		/* (Set|JCL|)Resolution option */
+  ppd_choice_t	*choice,		/* Current PPD choice */
+		*input_slot,		/* Current input slot */
 		*media_type;		/* Current media type */
   ppd_attr_t	*ppd_attr;		/* PPD attribute */
+  int		xdpi,			/* Horizontal resolution */
+		ydpi;			/* Vertical resolution */
+  const char	*resptr;		/* Pointer into resolution keyword */
   pwg_size_t	*pwgsize;		/* Current PWG size */
   pwg_map_t	*pwgsource,		/* Current PWG source */
 		*pwgtype;		/* Current PWG type */
@@ -4486,6 +4486,97 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     }
 
    /*
+    * Printer resolutions...
+    */
+
+    if ((resolution = ppdFindOption(ppd, "Resolution")) == NULL)
+      if ((resolution = ppdFindOption(ppd, "JCLResolution")) == NULL)
+        if ((resolution = ppdFindOption(ppd, "SetResolution")) == NULL)
+	  resolution = ppdFindOption(ppd, "CNRes_PGP");
+
+    if (resolution)
+    {
+     /*
+      * Report all supported resolutions...
+      */
+
+      attr = ippAddResolutions(p->ppd_attrs, IPP_TAG_PRINTER, "printer-resolution-supported", resolution->num_choices, IPP_RES_PER_INCH, NULL, NULL);
+
+      for (i = 0, choice = resolution->choices;
+           i < resolution->num_choices;
+	   i ++, choice ++)
+      {
+        xdpi = ydpi = (int)strtol(choice->choice, (char **)&resptr, 10);
+	if (resptr > choice->choice && xdpi > 0 && *resptr == 'x')
+	  ydpi = (int)strtol(resptr + 1, (char **)&resptr, 10);
+
+	if (xdpi <= 0 || ydpi <= 0)
+	{
+	  cupsdLogMessage(CUPSD_LOG_WARN,
+	                  "Bad resolution \"%s\" for printer %s.",
+			  choice->choice, p->name);
+	  xdpi = ydpi = 300;
+	}
+
+        attr->values[i].resolution.xres  = xdpi;
+        attr->values[i].resolution.yres  = ydpi;
+        attr->values[i].resolution.units = IPP_RES_PER_INCH;
+
+        if (choice->marked)
+	  ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER, "printer-resolution-default", IPP_RES_PER_INCH, xdpi, ydpi);
+
+        if (i == 0)
+	  ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER, "pwg-raster-document-resolution-supported", IPP_RES_PER_INCH, xdpi, ydpi);
+      }
+    }
+    else if ((ppd_attr = ppdFindAttr(ppd, "DefaultResolution", NULL)) != NULL &&
+             ppd_attr->value)
+    {
+     /*
+      * Just the DefaultResolution to report...
+      */
+
+      xdpi = ydpi = (int)strtol(ppd_attr->value, (char **)&resptr, 10);
+      if (resptr > ppd_attr->value && xdpi > 0)
+      {
+	if (*resptr == 'x')
+	  ydpi = (int)strtol(resptr + 1, (char **)&resptr, 10);
+	else
+	  ydpi = xdpi;
+      }
+
+      if (xdpi <= 0 || ydpi <= 0)
+      {
+	cupsdLogMessage(CUPSD_LOG_WARN,
+			"Bad default resolution \"%s\" for printer %s.",
+			ppd_attr->value, p->name);
+	xdpi = ydpi = 300;
+      }
+
+      ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER,
+		       "printer-resolution-default", IPP_RES_PER_INCH,
+		       xdpi, ydpi);
+      ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER,
+		       "printer-resolution-supported", IPP_RES_PER_INCH,
+		       xdpi, ydpi);
+      ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER, "pwg-raster-document-resolution-supported", IPP_RES_PER_INCH, xdpi, ydpi);
+    }
+    else
+    {
+     /*
+      * No resolutions in PPD - make one up...
+      */
+
+      ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER,
+		       "printer-resolution-default", IPP_RES_PER_INCH,
+		       300, 300);
+      ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER,
+		       "printer-resolution-supported", IPP_RES_PER_INCH,
+		       300, 300);
+      ippAddResolution(p->ppd_attrs, IPP_TAG_PRINTER, "pwg-raster-document-resolution-supported", IPP_RES_PER_INCH, 300, 300);
+    }
+
+   /*
     * Duplexing, etc...
     */
 
@@ -4761,8 +4852,9 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     */
 
     option_mappings = ippNew();
+
     add_job_password_mappings(option_mappings, p->ppd_attrs, ppd);
-    add_resolution_mappings(option_mappings, p->ppd_attrs, ppd, p->name);
+
     ippAddCollection(p->ppd_attrs, IPP_TAG_PRINTER, "option-mappings",
                      option_mappings);
 
@@ -5300,179 +5392,4 @@ add_job_password_mappings(
       }
     }
   }
-}
-
-
-/*
- * '_choiceToResolution()' - Convert a PPD resolution choice to an IPP value.
- */
-
-static _ipp_value_t		/* O - IPP resolution or {0} on failure */
-_choiceToResolution(
-  const char	*choice)	/* I - PPD resolution choice */
-{
-  const char *resptr;		/* Pointer into resolution keyword */
-  int		xdpi,		/* Horizontal resolution */
-		ydpi;		/* Vertical resolution */
-  xdpi = ydpi = (int)strtol(choice, (char **)&resptr, 10);
-  if (resptr > choice && xdpi > 0 && *resptr == 'x')
-    ydpi = (int)strtol(resptr + 1, (char **)&resptr, 10);
-  if (xdpi <= 0 || ydpi <= 0 || strcmp(resptr, "dpi"))
-    return (_ipp_value_t){0};
-  return (_ipp_value_t){.resolution = {xdpi, ydpi, IPP_RES_PER_INCH}};
-}
-
-/*
- * '_ippAddResolution()' - Add a resolution value to an IPP message.
- *
- * The @code ipp@ parameter refers to an IPP message previously created using
- * the @link ippNew@, @link ippNewRequest@, or  @link ippNewResponse@ functions.
- *
- * The @code group@ parameter specifies the IPP attribute group tag: none
- * (@code IPP_TAG_ZERO@, for member attributes), document (@code IPP_TAG_DOCUMENT@),
- * event notification (@code IPP_TAG_EVENT_NOTIFICATION@), operation
- * (@code IPP_TAG_OPERATION@), printer (@code IPP_TAG_PRINTER@), subscription
- * (@code IPP_TAG_SUBSCRIPTION@), or unsupported (@code IPP_TAG_UNSUPPORTED_GROUP@).
- */
-
-static ipp_attribute_t *		/* O - New attribute */
-_ippAddResolution(ipp_t      	*ipp,	/* I - IPP message */
-		  ipp_tag_t  	group,	/* I - IPP group */
-		  const char	*name,	/* I - Name of attribute */
-		  _ipp_value_t  res)	/* I - IPP resolution */
-{
-  return ippAddResolution(ipp, group, name, res.resolution.units,
-                          res.resolution.xres, res.resolution.yres);
-}
-
-/*
- * 'add_resolution_mappings()' - Map resolutions from a PPD file to IPP attributes.
- *
- * Precondition: The ppd file must be marked via the ppdMarkDefault() function.
- */
-
-static void
-add_resolution_mappings(
-  ipp_t			*mappings,	/* IO - Collection to add option mappings to */
-  ipp_t			*ppd_attrs,	/* I  - IPP attributes for printer */
-  ppd_file_t		*ppd, 		/* I  - Printer PPD */
-  const char		*printer_name)	/* I  - Printer name */
-{
-  _ipp_value_t		res;		/* IPP resolution */
-  ppd_attr_t		*ppd_attr;	/* PPD attribute */
-  int			i;		/* Loop counter */
-  ppd_option_t		*resolution;	/* PPD resolution option */
-  const char		*res_name;	/* PPD resolution name */
-  const _ipp_value_t	default_res = {.resolution = {300, 300, IPP_RES_PER_INCH}};
-
-  const char *ppd_res_names[] = {
-    "Resolution",
-    "SetResolution",
-    "JCLResolution",
-    "CNRes_PGP",
-    "HPPrintQuality",
-    "LXResolution"
-  };
-  for (i = 0; i < sizeof(ppd_res_names) / sizeof(ppd_res_names[0]); i++) {
-    res_name = ppd_res_names[i];
-    resolution = ppdFindOption(ppd, res_name);
-    if (resolution)
-      break;
-  }
-
-  if (resolution) {
-   /*
-    * Report all supported resolutions...
-    */
-
-    ipp_t 	 *mapping = NULL; /* IPP to PPD resolution mapping */
-    ppd_choice_t *choice;	  /* Current PPD choice */
-
-    for (i = 0, choice = resolution->choices;
-	 i < resolution->num_choices;
-	 i ++, choice ++) {
-      res = _choiceToResolution(choice->choice);
-      if (!res.resolution.xres) {
-	cupsdLogMessage(CUPSD_LOG_WARN,
-			"Bad resolution \"%s\" for printer %s.",
-			choice->choice, printer_name);
-	continue;
-      }
-      if (!mapping)
-        mapping = ippNew();
-      _ippAddResolution(ppd_attrs, IPP_TAG_PRINTER,
-			"pwg-raster-document-resolution-supported", res);
-      _ippAddResolution(ppd_attrs, IPP_TAG_PRINTER,
-			"printer-resolution-supported", res);
-      char *from = _resolutionToString(res);
-      if (from) {
-	ippAddString(mapping, IPP_TAG_ZERO, IPP_TAG_KEYWORD,
-		     from, NULL, choice->choice);
-	free(from);
-      } else {
-	cupsdLogMessage(CUPSD_LOG_ERROR,
-			"_resolutionToString() returned NULL.");
-      }
-     /*
-      * Note: !strcmp(resolution->defchoice, choice->choice) can be used
-      * instead of choice->marked if the ppd is not marked.
-      */
-      if (choice->marked) {
-	_ippAddResolution(ppd_attrs, IPP_TAG_PRINTER,
-			  "printer-resolution-default", res);
-      }
-    }
-   /*
-    * According to the PPD spec v4.3 section 5.9:
-    *
-    * If *DefaultResolution is part of an entry, the value of
-    * resolutionOption appearing here must be a valid resolution
-    * listed under *SetResolution or *Resolution.
-    *
-    * If resolutions exist in the PPD file, then either DefaultResolution
-    * refers to one them in which case it will have been marked by
-    * ppdMarkDefault and used to set the IPP attribute printer-resolution-default
-    * or otherwise the value is invalid and should be ignored.
-    * Thus it is safe to return here.
-    */
-    if (mapping) {
-      ipp_t *ipp_attr = ippNew();
-     /*
-      * Do not remove the printer-resolution IPP option so that IPP printers
-      * configured to use autogenerated PPDs work properly.
-      */
-      ippAddString(ipp_attr, IPP_TAG_ZERO, IPP_TAG_TEXT, "printer-resolution", NULL, "%s");
-      ippAddString(ipp_attr, IPP_TAG_ZERO, IPP_TAG_TEXT, res_name, NULL, "%s");
-      ippAddCollection(ipp_attr, IPP_TAG_ZERO, "_mapping", mapping);
-      ippAddCollection(mappings, IPP_TAG_ZERO, "printer-resolution", ipp_attr);
-      return;
-    }
-  }
-
- /*
-  * Check if DefaultResolution exists. If not, make one up.
-  *
-  * As per the PPD spec v4.3 section 5.9: If the device has only one
-  * resolution, *DefaultResolution may appear by itself, without *Resolution,
-  * *SetResolution, or any *OpenUI/*CloseUI bracketing.
-  */
-
-  ppd_attr = ppdFindAttr(ppd, "DefaultResolution", NULL);
-  if (ppd_attr && ppd_attr->value) {
-    res = _choiceToResolution(ppd_attr->value);
-    if (!res.resolution.xres) {
-      cupsdLogMessage(CUPSD_LOG_WARN,
-		      "Bad default resolution \"%s\" for printer %s.",
-		      ppd_attr->value, printer_name);
-      res = default_res;
-    }
-  } else {
-    res = default_res;
-  }
-  _ippAddResolution(ppd_attrs, IPP_TAG_PRINTER,
-		    "printer-resolution-default", res);
-  _ippAddResolution(ppd_attrs, IPP_TAG_PRINTER,
-		    "printer-resolution-supported", res);
-  _ippAddResolution(ppd_attrs, IPP_TAG_PRINTER,
-		    "pwg-raster-document-resolution-supported", res);
 }

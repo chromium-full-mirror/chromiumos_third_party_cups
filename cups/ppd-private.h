@@ -231,7 +231,6 @@ extern int _ppdConvertOptions(ipp_attribute_t *job_attrs,
                               ipp_attribute_t *option_mappings,
                               int num_options,
                               cups_option_t **options);
-extern char		*_resolutionToString(_ipp_value_t res);
 
 
 /*
