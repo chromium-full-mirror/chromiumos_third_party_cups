@@ -51,9 +51,13 @@ COBJS	=	\
 		testspeed.o \
 		testsub.o \
 		util.o
+GTEST_OBJS =	\
+		googletests.o \
+		cupsd_unittest.o
 OBJS	=	\
 		$(COBJS) \
-		$(CXXOBJS)
+		$(CXXOBJS) \
+		$(GTEST_OBJS)
 LIBTARGETS =	\
 		libcupsmime.a
 
@@ -66,11 +70,16 @@ UNITTARGETS =	\
 PROGRAMS =	\
 		cupsd \
 		cupsfilter \
-		cups-exec \
+		cups-exec
 
 TARGETS	=	\
 		$(LIBTARGETS) \
 		$(PROGRAMS)
+
+GTEST_FILES = 	$(subst main.o, fakemain.o, $(CUPSDOBJS)) \
+		$(GTEST_OBJS) \
+		libcupsmime.a \
+		../cups/$(LIBCUPSSTATIC)
 
 
 #
@@ -100,7 +109,7 @@ unittests:	$(UNITTARGETS)
 
 clean:
 	$(RM) $(OBJS)
-	$(RM) $(TARGETS) $(UNITTARGETS) convert
+	$(RM) $(TARGETS) $(UNITTARGETS) convert googletests
 
 
 #
@@ -353,6 +362,25 @@ libcupsmime.a:	$(LIBOBJS)
 	$(RM) $@
 	$(AR) $(ARFLAGS) $@ $(LIBOBJS)
 	$(RANLIB) $@
+
+
+#
+# Make the google unit tests, "googletests"
+#
+
+fakemain.o:	main.o
+	$(CC) $(ALL_CFLAGS) -c -o fakemain.o -D main=cupsd_main main.c
+
+googletests:	PC_DEPS = gtest libchrome libbrillo
+googletests:	PC_CFLAGS = $(eval googletests: PC_CFLAGS := $$(shell $(PKG_CONFIG) --cflags $(PC_DEPS)))$(PC_CLFLAGS)
+googletests:	PC_LIBS = $(eval googletests: PC_LIBS := $$(shell $(PKG_CONFIG) --libs $(PC_DEPS)))$(PC_LIBS)
+googletests:	CXXFLAGS += $(PC_CFLAGS)
+googletests:	ALL_CXXFLAGS += -Wno-error
+googletests:	$(GTEST_FILES)
+	echo Linking $@...
+	$(LD_CXX) $(LDFLAGS) -o googletests $(GTEST_FILES) $(PC_LIBS) $(LIBS) \
+		$(PAMLIBS) $(LIBPAPER) $(LIBMALLOC) $(SERVERLIBS) $(ONDEMANDLIBS) \
+		$(LIBWRAP) $(APPARMORLIBS) $(SNAPDGLIBLIBS)
 
 
 #
