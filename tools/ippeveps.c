@@ -628,7 +628,7 @@ jpeg_to_ps(const char    *filename,	/* I - Filename */
 	bufend += bytes;
       }
 
-      length = (size_t)((bufptr[1] << 8) | bufptr[2]);
+      length = (int)((bufptr[1] << 8) | bufptr[2]);
 
       if ((*bufptr >= 0xc0 && *bufptr <= 0xc3) || (*bufptr >= 0xc5 && *bufptr <= 0xc7) || (*bufptr >= 0xc9 && *bufptr <= 0xcb) || (*bufptr >= 0xcd && *bufptr <= 0xcf))
       {

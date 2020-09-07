@@ -1096,7 +1096,7 @@ get_device_id(usb_printer_t *printer,	/* I - Printer */
     length = (int)((((unsigned)buffer[1] & 255) << 8) | ((unsigned)buffer[0] & 255));
 
   if (length > bufsize)
-    length = bufsize;
+    length = (int)bufsize;
 
   if (length < 14)
   {
@@ -1310,7 +1310,7 @@ make_device_uri(
   snprintf(vendor_id_string, sizeof(vendor_id_string), "%04x",
 	   devdesc.idVendor);
 
-  if (httpAssembleURIf(HTTP_URI_CODING_ALL, uri, uri_size,
+  if (httpAssembleURIf(HTTP_URI_CODING_ALL, uri, (int)uri_size,
 		       "usb",		  // scheme
 		       NULL,		  // username
 		       vendor_id_string,  // host
@@ -1835,7 +1835,7 @@ static void *read_thread(void *reference)
       if (timercmp(&now, &end, <))
       {
 	timersub(&end, &now, &timeleft);
-	usleep(1000000 * timeleft.tv_sec + timeleft.tv_usec);
+	usleep((__useconds_t)(1000000 * timeleft.tv_sec + timeleft.tv_usec));
       }
     }
   } while (g.wait_eof || !g.read_thread_stop);
@@ -1924,7 +1924,7 @@ sidechannel_thread(void *reference)
 	  else
 	  {
 	    status  = CUPS_SC_STATUS_OK;
-	    datalen = strlen(data);
+	    datalen = (int)strlen(data);
 	  }
 	  cupsSideChannelWrite(command, CUPS_SC_STATUS_OK, data, datalen, 1.0);
 

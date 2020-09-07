@@ -359,7 +359,7 @@ cupsdRemoveFile(const char *filename)	/* I - File to remove */
   * Overwrite the file with random data.
   */
 
-  CUPS_SRAND(time(NULL));
+  CUPS_SRAND((unsigned int)time(NULL));
 
   for (i = 0; i < sizeof(buffer); i ++)
     buffer[i] = CUPS_RAND();

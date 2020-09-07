@@ -139,10 +139,10 @@ cupsMakeServerCredentials(
 
   language  = cupsLangDefault();
   curtime   = time(NULL);
-  serial[0] = curtime >> 24;
-  serial[1] = curtime >> 16;
-  serial[2] = curtime >> 8;
-  serial[3] = curtime;
+  serial[0] = (uint8_t)(curtime >> 24);
+  serial[1] = (uint8_t)(curtime >> 16);
+  serial[2] = (uint8_t)(curtime >> 8);
+  serial[3] = (uint8_t)(curtime);
 
   gnutls_x509_crt_init(&crt);
   if (strlen(language->language) == 5)
@@ -806,7 +806,7 @@ httpLoadCredentials(
         alloc_data += 1024;
       }
 
-      decoded = alloc_data - num_data;
+      decoded = (int)(alloc_data - num_data);
       httpDecode64_2((char *)data + num_data, &decoded, line);
       num_data += (size_t)decoded;
     }
@@ -1050,7 +1050,7 @@ http_gnutls_load_crl(void)
 	    alloc_data += 1024;
 	  }
 
-	  decoded = alloc_data - num_data;
+	  decoded = (int)(alloc_data - num_data);
 	  httpDecode64_2((char *)data + num_data, &decoded, line);
 	  num_data += (size_t)decoded;
 	}

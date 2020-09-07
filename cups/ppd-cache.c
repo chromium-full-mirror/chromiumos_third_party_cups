@@ -5067,7 +5067,7 @@ _ppdGetAttributeValue(
     case IPP_TAG_BOOLEAN:
       {
         const char *value = ippGetBoolean(attr, 0) ? "True" : "False";
-        value_buf_size = strlen(value);
+        value_buf_size = (int)strlen(value);
         if ((value_buf = (char *)calloc((size_t)++value_buf_size,
                                         sizeof(char))) == NULL)
           break;
@@ -5096,7 +5096,7 @@ _ppdGetAttributeValue(
         const char* string;
         if ((string = ippGetString(attr, 0, NULL)) != NULL)
         {
-          value_buf_size = strlen(string);
+          value_buf_size = (int)strlen(string);
           if ((value_buf = (char *)calloc((size_t)++value_buf_size,
                                           sizeof(char))) == NULL)
             break;
@@ -5186,8 +5186,8 @@ _ppdTransformValue(
           (strlen(replacement_char) == 1))
       {
         const char *valid_chars = ippGetString(option, 0, NULL);
-        int         i,
-                    len = strlen(value_buf);
+        int         i;
+        size_t      len = strlen(value_buf);
 
 
         for (i = 0; i < len; ++i)

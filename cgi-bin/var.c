@@ -1216,7 +1216,7 @@ cgi_set_sid(void)
     server_port = "SERVER_PORT";
 
   gettimeofday(&curtime, NULL);
-  CUPS_SRAND(curtime.tv_sec + curtime.tv_usec);
+  CUPS_SRAND((unsigned int)(curtime.tv_sec + curtime.tv_usec));
   snprintf(buffer, sizeof(buffer), "%s:%s:%s:%02X%02X%02X%02X%02X%02X%02X%02X",
            remote_addr, server_name, server_port,
 	   (unsigned)CUPS_RAND() & 255, (unsigned)CUPS_RAND() & 255,
