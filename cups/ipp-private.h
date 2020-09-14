@@ -208,6 +208,9 @@ extern void		_ippVarsInit(_ipp_vars_t *v, _ipp_fattr_cb_t attrcb, _ipp_ferror_cb
 extern const char	*_ippVarsPasswordCB(const char *prompt, http_t *http, const char *method, const char *resource, void *user_data) _CUPS_PRIVATE;
 extern int		_ippVarsSet(_ipp_vars_t *v, const char *name, const char *value) _CUPS_PRIVATE;
 
+/* ppd-cache.c */
+extern char             *_resolutionToString(_ipp_value_t res);
+
 
 /*
  * C++ magic...

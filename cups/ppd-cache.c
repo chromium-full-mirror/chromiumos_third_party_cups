@@ -4010,7 +4010,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   else
     strlcpy(ppdname, "Unknown", sizeof(ppdname));
 
-  if ((attr = ippFindAttribute(response, "output-bin-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1)
+  if ((attr = ippFindAttribute(response, "output-bin-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 0)
   {
     ipp_attribute_t	*trays = ippFindAttribute(response, "printer-output-tray", IPP_TAG_STRING);
 					/* printer-output-tray attribute, if any */
@@ -4982,6 +4982,33 @@ _pwgPageSizeForMedia(
   return (name);
 }
 
+/*
+ * '_resolutionToString()' retrieves the value from res and converts it to a
+ *  string. Caller is responsible for freeing the returned string when done.
+ */
+char * 			/* O - allocated buffer containing the value */
+_resolutionToString(
+ _ipp_value_t res)	/* I - IPP resolution value to be retrieved */
+{
+  char *value_buf = NULL;
+  int  value_buf_size;
+  const char *unit_str = res.resolution.units == IPP_RES_PER_INCH ? "dpi" : "dpcm";
+  const int x = res.resolution.xres;
+  const int y = res.resolution.yres;
+  if (x == y) {
+    value_buf_size = snprintf(NULL, 0, "%d%s", x, unit_str);
+  } else {
+    value_buf_size = snprintf(NULL, 0, "%dx%d%s", x, y, unit_str);
+  }
+  value_buf = (char *)calloc((size_t)++value_buf_size, sizeof(char));
+  if (value_buf != NULL) {
+    if (x == y)
+      snprintf(value_buf, (size_t)value_buf_size, "%d%s", x, unit_str);
+    else
+      snprintf(value_buf, (size_t)value_buf_size, "%dx%d%s", x, y, unit_str);
+  }
+  return value_buf;
+}
 
 /*
  * 'cups_get_url()' - Get a copy of the file at the given URL.
@@ -5086,6 +5113,16 @@ _ppdGetAttributeValue(
             strncat(value_buf, ptr, (size_t)value_buf_size);
           }
         }
+      }
+      break;
+
+    case IPP_TAG_RESOLUTION:
+      {
+        if (attr->num_values == 1)
+          return _resolutionToString(attr->values[0]);
+        DEBUG_printf((
+          "1_ppdGetAttributeValue: Unsupported IPP_TAG_RESOLUTION attr: "
+          "name=%s, num_values=%d", ippGetName(attr), attr->num_values));
       }
       break;
 
