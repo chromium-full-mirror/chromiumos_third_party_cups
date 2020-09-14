@@ -171,3 +171,6 @@ extern void		cupsdStopAllJobs(cupsd_jobaction_t action,
 extern int		cupsdTimeoutJob(cupsd_job_t *job);
 extern void		cupsdUnloadCompletedJobs(void);
 extern void		cupsdUpdateJobs(void);
+extern char		*get_options(cupsd_job_t *job, int banner_page,
+				     char *copies, size_t copies_size,
+				     char *title, size_t title_size);
