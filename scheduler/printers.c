@@ -5433,7 +5433,7 @@ add_resolution_mappings(
   *
   * As per the PPD spec v4.3 section 5.9: If the device has only one
   * resolution, *DefaultResolution may appear by itself, without *Resolution,
-  * *SetResolution, or any *OpenUI/*CloseUI bracketing.
+  * *SetResolution, or any *OpenUI / *CloseUI bracketing.
   */
 
   ppd_attr = ppdFindAttr(ppd, "DefaultResolution", NULL);
