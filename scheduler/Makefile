@@ -370,8 +370,8 @@ fakemain.o:	main.o
 	$(CC) $(ALL_CFLAGS) -c -o fakemain.o -D main=fake_main main.c
 
 googletests:	PC_DEPS = gtest libchrome-$(BASE_VER) libbrillo
-googletests:	PC_CFLAGS := $(shell $(PKG_CONFIG) --cflags $(PC_DEPS))
-googletests:	PC_LIBS := $(shell $(PKG_CONFIG) --libs $(PC_DEPS))
+googletests:	PC_CFLAGS = $(eval googletests: PC_CFLAGS := $$(shell $(PKG_CONFIG) --cflags $(PC_DEPS)))$(PC_CLFLAGS)
+googletests:	PC_LIBS = $(eval googletests: PC_LIBS := $$(shell $(PKG_CONFIG) --libs $(PC_DEPS)))$(PC_LIBS)
 googletests:	CXXFLAGS += $(PC_CFLAGS)
 googletests:	$(GTEST_FILES)
 	echo Linking $@...
