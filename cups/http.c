@@ -4067,6 +4067,7 @@ http_read(http_t *http,			/* I - HTTP connection */
           size_t length)		/* I - Maximum bytes to read */
 {
   ssize_t	bytes;			/* Bytes read */
+  int		read_retry_idx;		/* Read retry index */
 
 
   DEBUG_printf(("http_read(http=%p, buffer=%p, length=" CUPS_LLFMT ")", (void *)http, (void *)buffer, CUPS_LLCAST length));
@@ -4084,6 +4085,8 @@ http_read(http_t *http,			/* I - HTTP connection */
   }
 
   DEBUG_printf(("2http_read: Reading %d bytes into buffer.", (int)length));
+
+  read_retry_idx = 0;
 
   do
   {
@@ -4116,8 +4119,18 @@ http_read(http_t *http,			/* I - HTTP connection */
 
       if (errno == EWOULDBLOCK || errno == EAGAIN)
       {
+	/* Prevent looping forever on the "resource unavailable" condition */
+	if (errno == EAGAIN)
+	  read_retry_idx++;
+
 	if (http->timeout_cb && !(*http->timeout_cb)(http, http->timeout_data))
 	{
+	  http->error = errno;
+	  return (-1);
+	}
+	else if (read_retry_idx > HTTP_MAX_READ_RETRY)
+	{
+	  DEBUG_printf(("2http_read: Too many retries - aborting"));
 	  http->error = errno;
 	  return (-1);
 	}
