@@ -1490,7 +1490,7 @@ _ppdOpen(
     }
     else if (!strcmp(keyword, "CloseUI"))
     {
-      if ((!option || option->section == PPD_ORDER_JCL) && pg->ppd_conform == PPD_CONFORM_STRICT)
+      if (!option && pg->ppd_conform == PPD_CONFORM_STRICT)
       {
         pg->ppd_status = PPD_BAD_CLOSE_UI;
 
