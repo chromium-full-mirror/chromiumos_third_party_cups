@@ -319,7 +319,8 @@ cupsd:	$(CUPSDOBJS) libcupsmime.a ../cups/$(LIBCUPS)
 cupsd-static:	$(CUPSDOBJS) libcupsmime.a ../cups/$(LIBCUPSSTATIC)
 	echo Linking $@...
 	$(LD_CC) $(ALL_LDFLAGS) -o cupsd-static $(CUPSDOBJS) libcupsmime.a \
-		$(PAMLIBS) $(LIBPAPER) $(LIBMALLOC) $(SERVERLIBS) $(ONDEMANDLIBS) \ $(LIBWRAP) $(LINKCUPSSTATIC)
+		$(PAMLIBS) $(LIBPAPER) $(LIBMALLOC) $(SERVERLIBS) $(ONDEMANDLIBS) \
+		$(LIBWRAP) $(LINKCUPSSTATIC)
 	$(CODE_SIGN) -s "$(CODE_SIGN_IDENTITY)" $@
 
 
