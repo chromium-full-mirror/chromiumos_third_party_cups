@@ -44,7 +44,6 @@ class PrintJob : public testing::Test {
 
   // Use the PPD string ppd_data to set printer capabilities.
   void SetPrinter(const std::string& ppd_data) const {
-    ASSERT_STREQ("conf", PrinterRoot);
     if (job_->printer)
       cupsdDeletePrinter(job_->printer, true);
     job_->printer = cupsdAddPrinter(kPrinter);

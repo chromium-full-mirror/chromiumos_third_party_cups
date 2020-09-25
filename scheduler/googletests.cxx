@@ -9,19 +9,22 @@
 
 extern "C" {
 #include "cupsd.h"
+int fake_main(int argc, char* argv[]);
 }
 
 // Note: This program requires that cups is the current working directory
 // and not cups/scheduler. Invoke it via ./scheduler/googletests from bash.
-int main(int argc, char** argv) {
+int main(int argc, char* argv[]) {
   testing::InitGoogleTest(&argc, argv);
   base::ScopedTempDir ppd;  // ppd files directory
   EXPECT_TRUE(ppd.Set(base::FilePath("conf/ppd")));
-  cupsdSetString(&ConfigurationFile, "conf/cupsd.conf");
-  cupsdSetString(&CupsFilesFile, "conf/cups-files.conf");
-  EXPECT_TRUE(ConfigurationFile);
-  EXPECT_TRUE(CupsFilesFile);
-  EXPECT_TRUE(cupsdReadConfiguration());
+  {
+    char* args[] = {strdup("googletests"), strdup("-tc"),
+                    strdup("conf/cupsd.conf")};
+    EXPECT_EQ(0, fake_main(sizeof(args) / sizeof(args[0]), args));
+    for (char* arg : args)
+      free(arg);
+  }
   // Do not use /var/spool/cups/tmp or whatever TempDir in cups-files.conf
   // is set to as the temp dir.
   EXPECT_TRUE(base::Environment::Create()->UnSetVar("TMPDIR"));
