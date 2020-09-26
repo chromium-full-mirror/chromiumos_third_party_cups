@@ -9,7 +9,7 @@
 
 extern "C" {
 #include "cupsd.h"
-int fake_main(int argc, char* argv[]);
+int cupsd_main(int argc, char* argv[]);
 }
 
 // Note: This program requires that cups is the current working directory
@@ -21,7 +21,7 @@ int main(int argc, char* argv[]) {
   {
     char* args[] = {strdup("googletests"), strdup("-tc"),
                     strdup("conf/cupsd.conf")};
-    EXPECT_EQ(0, fake_main(sizeof(args) / sizeof(args[0]), args));
+    EXPECT_EQ(0, cupsd_main(sizeof(args) / sizeof(args[0]), args));
     for (char* arg : args)
       free(arg);
   }
