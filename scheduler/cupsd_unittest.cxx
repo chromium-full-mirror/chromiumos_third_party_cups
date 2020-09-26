@@ -26,11 +26,19 @@ class PrintJob : public testing::Test {
   PrintJob() : job_(cupsdAddJob(0, "")){};
 
   ~PrintJob() {
-    // It is considered successful to attempt to delete a file that
-    // does not exist.
-    EXPECT_TRUE(base::DeleteFile(kPpdPath, false));
-    if (job_)
+    if (job_) {
+      EXPECT_TRUE(job_->attrs);
+      if (job_->attrs) {
+        ippDelete(job_->attrs);
+        job_->attrs = nullptr;
+      }
+      if (job_->printer) {
+        cupsdDeletePrinter(job_->printer, true);
+        job_->printer = nullptr;
+      }
+      EXPECT_FALSE(base::PathExists(kPpdPath));
       cupsdDeleteJob(job_, CUPSD_JOB_PURGE);
+    }
   }
 
   PrintJob(const PrintJob&) = delete;
@@ -38,6 +46,9 @@ class PrintJob : public testing::Test {
 
   void SetUp() {
     ASSERT_TRUE(job_);
+    ASSERT_FALSE(job_->attrs);
+    ASSERT_FALSE(job_->printer);
+    ASSERT_FALSE(base::PathExists(kPpdPath));
     job_->attrs = ippNew();
     ASSERT_TRUE(job_->attrs);
   }
@@ -49,6 +60,7 @@ class PrintJob : public testing::Test {
     job_->printer = cupsdAddPrinter(kPrinter);
     ASSERT_TRUE(job_->printer);
     job_->printer->temporary = true;
+    EXPECT_FALSE(base::PathExists(kPpdPath));
     ASSERT_TRUE(brillo::WriteStringToFile(kPpdPath, ppd_data));
     cupsdSetPrinterAttrs(job_->printer);
   }
@@ -198,7 +210,7 @@ class PrintJob : public testing::Test {
   void AddIpp(const std::string& name, const std::string& value) const {
     ASSERT_TRUE(job_->attrs);
     ASSERT_TRUE(ippAddString(job_->attrs, IPP_TAG_JOB, IPP_TAG_TEXT,
-                             name.c_str(), NULL, value.c_str()));
+                             name.c_str(), nullptr, value.c_str()));
   }
 
   void AddIppEnum(const std::string& name,
@@ -215,7 +227,7 @@ class PrintJob : public testing::Test {
     for (const auto& value : values)
       vals.push_back(value.c_str());
     ASSERT_TRUE(ippAddStrings(job_->attrs, IPP_TAG_JOB, IPP_TAG_MIMETYPE,
-                              name.c_str(), vals.size(), NULL, vals.data()));
+                              name.c_str(), vals.size(), nullptr, vals.data()));
   }
 
   cupsd_job_t* const job_;
