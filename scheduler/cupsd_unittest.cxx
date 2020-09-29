@@ -175,11 +175,10 @@ class PrintJob : public testing::Test {
   void FilterImpl(std::string& out) const {
     ASSERT_TRUE(job_->printer);
     ASSERT_TRUE(job_->attrs);
-    // &nul, a valid memory address, is used instead of NULL.
-    // This is necessary because otherwise strlcpy(NULL, "1", 0) segfaults
-    // in job.c.
-    char nul = 0;
-    char* args = get_options(job_, false, &nul, 0, &nul, 0);
+    // The copies and title buffers must have a size of at least 1 for
+    // _cups_strlcpy() to work properly.
+    char buf[] = {0};
+    char* args = get_options(job_, false, buf, sizeof(buf), buf, sizeof(buf));
     ASSERT_TRUE(args);
     out = args;
     free(args);
