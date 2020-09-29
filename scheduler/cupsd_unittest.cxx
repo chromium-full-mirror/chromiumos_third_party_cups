@@ -77,26 +77,32 @@ class PrintJob : public testing::Test {
 
   // Chainable function to add the IPP job-password attribute.
   const PrintJob& Password(const std::string& password) const {
-    AddIpp("job-password", password);
+    AddIppStrings("job-password", {password});
     return *this;
   }
 
   // Chainable function to add the IPP document-format-supported attribute.
   const PrintJob& DocumentFormats(
       const std::vector<std::string>& values) const {
-    AddIppMime("document-format-supported", values);
+    AddIppStrings("document-format-supported", values, IPP_TAG_MIMETYPE);
     return *this;
   }
 
   // Chainable function to add the IPP print-quality-supported attribute.
   const PrintJob& PrintQualities(const std::vector<int>& values) const {
-    AddIppEnum("print-quality-supported", values);
+    AddIppEnums("print-quality-supported", values);
     return *this;
   }
 
   // Chainable function to add the IPP output-bin-supported attribute.
   const PrintJob& OutputBins(const std::vector<std::string>& values) const {
-    AddIppMime("output-bin-supported", values);
+    AddIppStrings("output-bin-supported", values);
+    return *this;
+  }
+
+  // Chainable function to add the IPP media-source-supported attribute.
+  const PrintJob& MediaSources(const std::vector<std::string>& values) const {
+    AddIppStrings("media-source-supported", values);
     return *this;
   }
 
@@ -193,7 +199,7 @@ class PrintJob : public testing::Test {
     if (!ippFindAttribute(job_->attrs, "media-size-supported",
                           IPP_TAG_BEGIN_COLLECTION) &&
         !ippFindAttribute(job_->attrs, "media-supported", IPP_TAG_ZERO))
-      AddIpp("media-supported", CUPS_MEDIA_A4);
+      AddIppStrings("media-supported", {CUPS_MEDIA_A4});
     // Create a document-format-supported IPP attribute with value
     // application/pdf if an attribute doesn't already exist.
     // This is required for PPD generation to succeed.
@@ -206,27 +212,22 @@ class PrintJob : public testing::Test {
     ASSERT_TRUE(!unlink(file));
   }
 
-  void AddIpp(const std::string& name, const std::string& value) const {
-    ASSERT_TRUE(job_->attrs);
-    ASSERT_TRUE(ippAddString(job_->attrs, IPP_TAG_JOB, IPP_TAG_TEXT,
-                             name.c_str(), nullptr, value.c_str()));
-  }
-
-  void AddIppEnum(const std::string& name,
-                  const std::vector<int>& values) const {
+  void AddIppEnums(const std::string& name,
+                   const std::vector<int>& values) const {
     ASSERT_TRUE(job_->attrs);
     ASSERT_TRUE(ippAddIntegers(job_->attrs, IPP_TAG_JOB, IPP_TAG_ENUM,
                                name.c_str(), values.size(), values.data()));
   }
 
-  void AddIppMime(const std::string& name,
-                  const std::vector<std::string>& values) const {
+  void AddIppStrings(const std::string& name,
+                     const std::vector<std::string>& values,
+                     ipp_tag_e value_tag = IPP_TAG_KEYWORD) const {
     ASSERT_TRUE(job_->attrs);
     std::vector<const char*> vals;
     for (const auto& value : values)
       vals.push_back(value.c_str());
-    ASSERT_TRUE(ippAddStrings(job_->attrs, IPP_TAG_JOB, IPP_TAG_MIMETYPE,
-                              name.c_str(), vals.size(), nullptr, vals.data()));
+    ASSERT_TRUE(ippAddStrings(job_->attrs, IPP_TAG_JOB, value_tag, name.c_str(),
+                              vals.size(), nullptr, vals.data()));
   }
 
   cupsd_job_t* const job_;
