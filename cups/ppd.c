@@ -2860,12 +2860,12 @@ ppd_globals_init(void)
 static int				/* O - Hash index */
 ppd_hash_option(ppd_option_t *option)	/* I - Option */
 {
-  int		hash = 0;		/* Hash index */
+  unsigned	hash = 0;		/* Hash index */
   const char	*k;			/* Pointer into keyword */
 
 
   for (hash = option->keyword[0], k = option->keyword + 1; *k;)
-    hash = 33 * hash + *k++;
+    hash = 33U * hash + *k++;
 
   return (hash & 511);
 }
