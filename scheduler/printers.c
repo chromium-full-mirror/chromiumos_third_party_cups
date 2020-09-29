@@ -5359,8 +5359,11 @@ add_resolution_mappings(
     ipp_t 	 *mapping = NULL; /* IPP to PPD resolution mapping */
     ppd_choice_t *choice;	  /* Current PPD choice */
 
-    int res_x[resolution->num_choices];
-    int res_y[resolution->num_choices];
+    int res_size = resolution->num_choices;
+    if (res_size < 1)
+      res_size = 1;
+    int res_x[res_size];
+    int res_y[res_size];
     int res_cnt = 0;
     for (i = 0, choice = resolution->choices;
 	 i < resolution->num_choices;
