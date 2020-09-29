@@ -3689,11 +3689,6 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   * InputSlot...
   */
 
-  if ((attr = ippFindAttribute(ippGetCollection(defattr, 0), "media-source", IPP_TAG_ZERO)) != NULL)
-    pwg_ppdize_name(ippGetString(attr, 0, NULL), ppdname, sizeof(ppdname));
-  else
-    strlcpy(ppdname, "Unknown", sizeof(ppdname));
-
   if ((attr = ippFindAttribute(response, "media-source-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1)
   {
     static const char * const sources[] =
@@ -3750,10 +3745,31 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
       "roll-10"
     };
 
+    /*
+     * By default, use the automatic input slot (MediaPosition 0)
+     */
+    for (i = 0; i < count; i ++)
+    {
+      keyword = ippGetString(attr, i, NULL);
+      if (!strcmp("auto", keyword))
+      {
+        pwg_ppdize_name(keyword, ppdname, sizeof(ppdname));
+        break;
+      }
+    }
+    if (i == count)
+    {
+      ipp_attribute_t *tmp = ippFindAttribute(ippGetCollection(defattr, 0), "media-source", IPP_TAG_ZERO);
+      if (tmp != NULL)
+        pwg_ppdize_name(ippGetString(tmp, 0, NULL), ppdname, sizeof(ppdname));
+      else
+        strlcpy(ppdname, "Unknown", sizeof(ppdname));
+    }
+
     cupsFilePrintf(fp, "*OpenUI *InputSlot: PickOne\n"
                        "*OrderDependency: 10 AnySetup *InputSlot\n"
                        "*DefaultInputSlot: %s\n", ppdname);
-    for (i = 0, count = ippGetCount(attr); i < count; i ++)
+    for (i = 0; i < count; i ++)
     {
       keyword = ippGetString(attr, i, NULL);
 
