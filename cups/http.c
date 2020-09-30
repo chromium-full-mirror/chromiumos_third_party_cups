@@ -18,6 +18,7 @@
 
 #include "cups-private.h"
 #include "debug-internal.h"
+#include "error-codes.h"
 #include <fcntl.h>
 #include <math.h>
 #ifdef _WIN32
@@ -2341,13 +2342,14 @@ httpReconnect2(http_t *http,		/* I - HTTP connection */
   char			temp[256];	/* Temporary address string */
 #endif /* DEBUG */
 
+  EC_FUNC;
 
   DEBUG_printf(("httpReconnect2(http=%p, msec=%d, cancel=%p)", (void *)http, msec, (void *)cancel));
 
   if (!http)
   {
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(EINVAL), 0);
-    return (-1);
+    RETURN_FAIL_INPUT_PARAMETER(-1);
   }
 
 #ifdef HAVE_TLS
@@ -2413,7 +2415,7 @@ httpReconnect2(http_t *http,		/* I - HTTP connection */
     DEBUG_printf(("1httpReconnect2: httpAddrConnect failed: %s",
                   strerror(http->error)));
 
-    return (-1);
+    RETURN_FAIL(-1);
   }
 
   DEBUG_printf(("2httpReconnect2: New socket=%d", http->fd));
@@ -2436,18 +2438,22 @@ httpReconnect2(http_t *http,		/* I - HTTP connection */
       httpAddrClose(NULL, http->fd);
       http->fd = -1;
 
-      return (-1);
+      RETURN_FAIL(-1);
     }
   }
-  else if (http->encryption == HTTP_ENCRYPTION_REQUIRED && !http->tls_upgrade)
-    return (http_tls_upgrade(http));
+  else if (http->encryption == HTTP_ENCRYPTION_REQUIRED && !http->tls_upgrade) {
+    int status = http_tls_upgrade(http);
+    if (status == 0)
+      RETURN_OK(0);
+    RETURN_FAIL(-1);
+  }
 #endif /* HAVE_TLS */
 
   DEBUG_printf(("1httpReconnect2: Connected to %s:%d...",
 		httpAddrString(http->hostaddr, temp, sizeof(temp)),
 		httpAddrPort(http->hostaddr)));
 
-  return (0);
+  RETURN_OK(0);
 }
 
 
@@ -4330,11 +4336,12 @@ http_send(http_t       *http,		/* I - HTTP connection */
 		  NULL
 		};
 
+  EC_FUNC;
 
   DEBUG_printf(("4http_send(http=%p, request=HTTP_%s, uri=\"%s\")", (void *)http, codes[request], uri));
 
   if (http == NULL || uri == NULL)
-    return (-1);
+    RETURN_FAIL_INPUT_PARAMETER(-1);
 
  /*
   * Set the User-Agent field if it isn't already...
@@ -4372,7 +4379,7 @@ http_send(http_t       *http,		/* I - HTTP connection */
                   http->fd, http->status, http->tls_upgrade));
 
     if (httpReconnect2(http, 30000, NULL))
-      return (-1);
+      RETURN_FAIL(-1);
   }
 
  /*
@@ -4383,7 +4390,7 @@ http_send(http_t       *http,		/* I - HTTP connection */
   {
     if (httpFlushWrite(http) < 0)
       if (httpReconnect2(http, 30000, NULL))
-        return (-1);
+        RETURN_FAIL(-1);
   }
 
  /*
@@ -4409,7 +4416,7 @@ http_send(http_t       *http,		/* I - HTTP connection */
   if (httpPrintf(http, "%s %s HTTP/1.1\r\n", codes[request], buf) < 1)
   {
     http->status = HTTP_STATUS_ERROR;
-    return (-1);
+    RETURN_FAIL(-1);
   }
 
   for (i = 0; i < HTTP_FIELD_MAX; i ++)
@@ -4428,13 +4435,13 @@ http_send(http_t       *http,		/* I - HTTP connection */
 	if (httpPrintf(http, "Host: %s:%d\r\n", value, httpAddrPort(http->hostaddr)) < 1)
 	{
 	  http->status = HTTP_STATUS_ERROR;
-	  return (-1);
+	  RETURN_FAIL(-1);
 	}
       }
       else if (httpPrintf(http, "%s: %s\r\n", http_fields[i], value) < 1)
       {
 	http->status = HTTP_STATUS_ERROR;
-	return (-1);
+	RETURN_FAIL(-1);
       }
     }
   }
@@ -4443,7 +4450,7 @@ http_send(http_t       *http,		/* I - HTTP connection */
     if (httpPrintf(http, "Cookie: $Version=0; %s\r\n", http->cookie) < 1)
     {
       http->status = HTTP_STATUS_ERROR;
-      return (-1);
+      RETURN_FAIL(-1);
     }
 
   DEBUG_printf(("5http_send: expect=%d, mode=%d, state=%d", http->expect,
@@ -4455,17 +4462,17 @@ http_send(http_t       *http,		/* I - HTTP connection */
     if (httpPrintf(http, "Expect: 100-continue\r\n") < 1)
     {
       http->status = HTTP_STATUS_ERROR;
-      return (-1);
+      RETURN_FAIL(-1);
     }
 
   if (httpPrintf(http, "\r\n") < 1)
   {
     http->status = HTTP_STATUS_ERROR;
-    return (-1);
+    RETURN_FAIL(-1);
   }
 
   if (httpFlushWrite(http) < 0)
-    return (-1);
+    RETURN_FAIL(-1);
 
   http_set_length(http);
   httpClearFields(http);
@@ -4486,7 +4493,7 @@ http_send(http_t       *http,		/* I - HTTP connection */
     http->authstring = http->_authstring;
   }
 
-  return (0);
+  RETURN_OK(0);
 }
 
 
@@ -4689,6 +4696,7 @@ http_write(http_t     *http,		/* I - HTTP connection */
   ssize_t	tbytes,			/* Total bytes sent */
 		bytes;			/* Bytes sent */
 
+  EC_FUNC;
 
   DEBUG_printf(("7http_write(http=%p, buffer=%p, length=" CUPS_LLFMT ")", (void *)http, (void *)buffer, CUPS_LLCAST length));
   http->error = 0;
@@ -4740,7 +4748,7 @@ http_write(http_t     *http,		/* I - HTTP connection */
         if (nfds < 0)
 	{
 	  http->error = errno;
-	  return (-1);
+	  RETURN_FAIL_UNKNOWN(-1);
 	}
 	else if (nfds == 0 && (!http->timeout_cb || !(*http->timeout_cb)(http, http->timeout_data)))
 	{
@@ -4818,7 +4826,7 @@ http_write(http_t     *http,		/* I - HTTP connection */
 
   DEBUG_printf(("8http_write: Returning " CUPS_LLFMT ".", CUPS_LLCAST tbytes));
 
-  return (tbytes);
+  RETURN_OK(tbytes);
 }
 
 

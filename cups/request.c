@@ -15,6 +15,7 @@
 
 #include "cups-private.h"
 #include "debug-internal.h"
+#include "error-codes.h"
 #include <fcntl.h>
 #include <sys/stat.h>
 #if defined(_WIN32) || defined(__EMX__)
@@ -108,6 +109,7 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   ssize_t	bytes;			/* Number of bytes read/written */
   char		buffer[32768];		/* Output buffer */
 
+  EC_FUNC;
 
   DEBUG_printf(("cupsDoIORequest(http=%p, request=%p(%s), resource=\"%s\", infile=%d, outfile=%d)", (void *)http, (void *)request, request ? ippOpString(request->request.op.operation_id) : "?", resource, infile, outfile));
 
@@ -121,7 +123,7 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(EINVAL), 0);
 
-    return (NULL);
+    RETURN_FAIL_INPUT_PARAMETER(NULL);
   }
 
  /*
@@ -132,7 +134,7 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   {
     ippDelete(request);
 
-    return (NULL);
+    RETURN_FAIL_INPUT_PARAMETER(NULL);
   }
 
  /*
@@ -150,7 +152,7 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       _cupsSetError(errno == EBADF ? IPP_STATUS_ERROR_NOT_FOUND : IPP_STATUS_ERROR_NOT_AUTHORIZED, NULL, 0);
       ippDelete(request);
 
-      return (NULL);
+      RETURN_FAIL_UNKNOWN(NULL);
     }
 
 #ifdef _WIN32
@@ -166,7 +168,7 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       _cupsSetError(IPP_STATUS_ERROR_NOT_POSSIBLE, strerror(EISDIR), 0);
       ippDelete(request);
 
-      return (NULL);
+      RETURN_FAIL_INPUT_PARAMETER(NULL);
     }
 
 #ifndef _WIN32
@@ -252,8 +254,14 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       */
 
       while ((bytes = httpRead2(http, buffer, sizeof(buffer))) > 0)
-        if (_cupsWriteWrapper(outfile, buffer, (size_t)bytes) < 0)
-          break;
+        if (_cupsWriteWrapper(outfile, buffer, (size_t)bytes) < 0) {
+          /* Return with an error. */
+          if (http->state != HTTP_STATE_WAITING)
+            httpFlush(http);
+          ippDelete(request);
+          RETURN_FAIL(NULL);
+        }
+
     }
 
     if (http->state != HTTP_STATE_WAITING)
@@ -272,7 +280,9 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 
   ippDelete(request);
 
-  return (response);
+  if (response == NULL)
+    RETURN_FAIL(NULL);
+  RETURN_OK(response);
 }
 
 
@@ -597,6 +607,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   char			date[256];	/* Date: header value */
   int			digest;		/* Are we using Digest authentication? */
 
+  EC_FUNC;
 
   DEBUG_printf(("cupsSendRequest(http=%p, request=%p(%s), resource=\"%s\", length=" CUPS_LLFMT ")", (void *)http, (void *)request, request ? ippOpString(request->request.op.operation_id) : "?", resource, CUPS_LLCAST length));
 
@@ -608,7 +619,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   {
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(EINVAL), 0);
 
-    return (HTTP_STATUS_ERROR);
+    RETURN_FAIL_INPUT_PARAMETER(HTTP_STATUS_ERROR);
   }
 
  /*
@@ -616,7 +627,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   */
 
   if (!http && (http = _cupsConnect()) == NULL)
-    return (HTTP_STATUS_SERVICE_UNAVAILABLE);
+    RETURN_FAIL_INPUT_PARAMETER(HTTP_STATUS_SERVICE_UNAVAILABLE);
 
  /*
   * If the prior request was not flushed out, do so now...
@@ -633,7 +644,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
     DEBUG_printf(("1cupsSendRequest: Unknown HTTP state (%d), "
                   "reconnecting.", http->state));
     if (httpReconnect2(http, 30000, NULL))
-      return (HTTP_STATUS_ERROR);
+      RETURN_FAIL(HTTP_STATUS_ERROR);
   }
 
 #ifdef HAVE_TLS
@@ -648,7 +659,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       httpEncryption(http, HTTP_ENCRYPTION_REQUIRED))
   {
     DEBUG_puts("1cupsSendRequest: Unable to encrypt connection.");
-    return (HTTP_STATUS_SERVICE_UNAVAILABLE);
+    RETURN_FAIL(HTTP_STATUS_SERVICE_UNAVAILABLE);
   }
 #endif /* HAVE_TLS */
 
@@ -663,7 +674,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
     if (httpReconnect2(http, 30000, NULL))
     {
       DEBUG_puts("1cupsSendRequest: Unable to reconnect.");
-      return (HTTP_STATUS_SERVICE_UNAVAILABLE);
+      RETURN_FAIL(HTTP_STATUS_SERVICE_UNAVAILABLE);
     }
   }
 
@@ -726,7 +737,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       if (httpReconnect2(http, 30000, NULL))
       {
         DEBUG_puts("1cupsSendRequest: Unable to reconnect.");
-        return (HTTP_STATUS_SERVICE_UNAVAILABLE);
+        RETURN_FAIL(HTTP_STATUS_SERVICE_UNAVAILABLE);
       }
       else
         continue;
@@ -774,7 +785,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 	http->status = HTTP_STATUS_ERROR;
 	http->state  = HTTP_STATE_WAITING;
 
-	return (HTTP_STATUS_ERROR);
+	RETURN_FAIL(HTTP_STATUS_ERROR);
       }
     }
 
@@ -821,15 +832,18 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
     {
       case HTTP_STATUS_CONTINUE :
       case HTTP_STATUS_OK :
+          DEBUG_printf(("1cupsSendRequest: Returning %d.", status));
+          RETURN_OK(status);
+
       case HTTP_STATUS_ERROR :
           DEBUG_printf(("1cupsSendRequest: Returning %d.", status));
-          return (status);
+          RETURN_FAIL(status);
 
       case HTTP_STATUS_UNAUTHORIZED :
           if (cupsDoAuthentication(http, "POST", resource))
 	  {
             DEBUG_puts("1cupsSendRequest: Returning HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED.");
-	    return (HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED);
+            RETURN_FAIL(HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED);
 	  }
 
           DEBUG_puts("2cupsSendRequest: Reconnecting after HTTP_STATUS_UNAUTHORIZED.");
@@ -837,7 +851,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 	  if (httpReconnect2(http, 30000, NULL))
 	  {
 	    DEBUG_puts("1cupsSendRequest: Unable to reconnect.");
-	    return (HTTP_STATUS_SERVICE_UNAVAILABLE);
+	    RETURN_FAIL(HTTP_STATUS_SERVICE_UNAVAILABLE);
 	  }
 	  break;
 
@@ -854,14 +868,14 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 	  if (httpReconnect2(http, 30000, NULL))
 	  {
 	    DEBUG_puts("1cupsSendRequest: Unable to reconnect.");
-	    return (HTTP_STATUS_SERVICE_UNAVAILABLE);
+	    RETURN_FAIL(HTTP_STATUS_SERVICE_UNAVAILABLE);
 	  }
 
 	  DEBUG_puts("2cupsSendRequest: Upgrading to TLS.");
 	  if (httpEncryption(http, HTTP_ENCRYPTION_REQUIRED))
 	  {
 	    DEBUG_puts("1cupsSendRequest: Unable to encrypt connection.");
-	    return (HTTP_STATUS_SERVICE_UNAVAILABLE);
+	    RETURN_FAIL(HTTP_STATUS_SERVICE_UNAVAILABLE);
 	  }
 	  break;
 #endif /* HAVE_TLS */
@@ -879,7 +893,7 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 	  if (httpReconnect2(http, 30000, NULL))
 	  {
 	    DEBUG_puts("1cupsSendRequest: Unable to reconnect.");
-	    return (HTTP_STATUS_SERVICE_UNAVAILABLE);
+	    RETURN_FAIL(HTTP_STATUS_SERVICE_UNAVAILABLE);
 	  }
 	  break;
 
@@ -888,9 +902,10 @@ cupsSendRequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 	  * Some other error...
 	  */
 
-	  return (status);
+	  RETURN_FAIL_UNEXPECTED_RESPONSE(status);
     }
   }
+  RETURN_FAIL_UNKNOWN(HTTP_STATUS_ERROR);
 }
 
 

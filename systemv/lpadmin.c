@@ -14,9 +14,26 @@
  */
 
 #include <cups/cups-private.h>
+#include <cups/error-codes.h>
 #include <cups/ippusb-private.h>
 #include <cups/ppd-private.h>
 
+/*
+ * Codes returned by lpadmin.
+ */
+
+typedef enum lpadmin_status_e {
+	LPAS_OK = 0,
+	LPAS_UNKNOWN_ERROR = 1,
+	LPAS_WRONG_PARAMETERS = 2,
+	LPAS_IO_ERROR = 3,
+	LPAS_MEMORY_ALLOC_ERROR = 4,
+	LPAS_INVALID_PPD_FILE = 5,
+	LPAS_SERVER_UNREACHABLE = 6,
+	LPAS_PRINTER_UNREACHABLE = 7,
+	LPAS_PRINTER_WRONG_RESPONSE = 8,
+	LPAS_PRINTER_NOT_AUTOCONFIGURABLE = 9
+} lpadmin_status_t;
 
 /*
  * Local functions...
@@ -30,7 +47,7 @@ static int		delete_printer_from_class(http_t *http, char *printer,
 static int		delete_printer_option(http_t *http, char *printer,
 			                      char *option);
 static int		enable_printer(http_t *http, char *printer);
-static char		*get_printer_ppd(const char *uri, char *buffer, size_t bufsize, int *num_options, cups_option_t **options);
+lpadmin_status_t get_printer_ppd(const char *uri, char *buffer, size_t bufsize, int *num_options, cups_option_t **options);
 static cups_ptype_t	get_printer_type(http_t *http, char *printer, char *uri,
 			                 size_t urisize);
 static int		set_printer_options(http_t *http, char *printer,
@@ -41,6 +58,8 @@ static int		validate_name(const char *name);
 
 static ipp_t *request_document_formats(http_t *http, const char *resource,
                                        const char *uri);
+
+static lpadmin_status_t status_from_last_error_code();
 
 /*
  * 'main()' - Parse options and configure the scheduler.
@@ -91,7 +110,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		if (http == NULL)
 		{
 		  _cupsLangPrintf(stderr, _("lpadmin: Unable to connect to server: %s"), strerror(errno));
-		  return (1);
+		  return LPAS_SERVER_UNREACHABLE;
 		}
 	      }
 
@@ -100,7 +119,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		_cupsLangPuts(stderr,
 			      _("lpadmin: Unable to add a printer to the class:\n"
 				"         You must specify a printer name first."));
-		return (1);
+		return LPAS_WRONG_PARAMETERS;
 	      }
 
 	      if (opt[1] != '\0')
@@ -126,11 +145,11 @@ main(int  argc,				/* I - Number of command-line arguments */
 		_cupsLangPuts(stderr,
 			      _("lpadmin: Class name can only contain printable "
 				"characters."));
-		return (1);
+		return LPAS_WRONG_PARAMETERS;
 	      }
 
 	      if (add_printer_to_class(http, printer, pclass))
-		return (1);
+		return LPAS_UNKNOWN_ERROR;
 	      break;
 
 	  case 'd' : /* Set as default destination */
@@ -141,7 +160,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		if (http == NULL)
 		{
 		  _cupsLangPrintf(stderr, _("lpadmin: Unable to connect to server: %s"), strerror(errno));
-		  return (1);
+		  return LPAS_SERVER_UNREACHABLE;
 		}
 	      }
 
@@ -166,11 +185,11 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      if (!validate_name(printer))
 	      {
 		_cupsLangPuts(stderr, _("lpadmin: Printer name can only contain printable characters."));
-		return (1);
+		return LPAS_WRONG_PARAMETERS;
 	      }
 
 	      if (default_printer(http, printer))
-		return (1);
+		return LPAS_UNKNOWN_ERROR;
 
 	      i = argc;
 	      break;
@@ -234,7 +253,7 @@ main(int  argc,				/* I - Number of command-line arguments */
                 {
                   _cupsLangPuts(stderr, _("lpadmin: System V interface scripts are no longer supported for security reasons."));
                   cupsFileClose(fp);
-                  return (1);
+                  return LPAS_INVALID_PPD_FILE;
                 }
 
                 cupsFileClose(fp);
@@ -264,7 +283,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		  _cupsLangPrintf(stderr,
 				  _("lpadmin: Unable to connect to server: %s"),
 				  strerror(errno));
-		  return (1);
+		  return LPAS_SERVER_UNREACHABLE;
 		}
 	      }
 
@@ -333,7 +352,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      if (!validate_name(printer))
 	      {
 		_cupsLangPuts(stderr, _("lpadmin: Printer name can only contain printable characters."));
-		return (1);
+		return LPAS_WRONG_PARAMETERS;
 	      }
 	      break;
 
@@ -347,7 +366,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		  _cupsLangPrintf(stderr,
 				  _("lpadmin: Unable to connect to server: %s"),
 				  strerror(errno));
-		  return (1);
+		  return LPAS_SERVER_UNREACHABLE;
 		}
 	      }
 
@@ -356,7 +375,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		_cupsLangPuts(stderr,
 			      _("lpadmin: Unable to remove a printer from the class:\n"
 				"         You must specify a printer name first."));
-		return (1);
+		return LPAS_WRONG_PARAMETERS;
 	      }
 
 	      if (opt[1] != '\0')
@@ -380,11 +399,11 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      if (!validate_name(pclass))
 	      {
 		_cupsLangPuts(stderr, _("lpadmin: Class name can only contain printable characters."));
-		return (1);
+		return LPAS_WRONG_PARAMETERS;
 	      }
 
 	      if (delete_printer_from_class(http, printer, pclass))
-		return (1);
+		return LPAS_UNKNOWN_ERROR;
 	      break;
 
 	  case 'R' : /* Remove option */
@@ -395,7 +414,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		if (http == NULL)
 		{
 		  _cupsLangPrintf(stderr, _("lpadmin: Unable to connect to server: %s"), strerror(errno));
-		  return (1);
+		  return LPAS_SERVER_UNREACHABLE;
 		}
 	      }
 
@@ -404,7 +423,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		_cupsLangPuts(stderr,
 			      _("lpadmin: Unable to delete option:\n"
 				"         You must specify a printer name first."));
-		return (1);
+		return LPAS_WRONG_PARAMETERS;
 	      }
 
 	      if (opt[1] != '\0')
@@ -426,7 +445,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      }
 
 	      if (delete_printer_option(http, printer, val))
-		return (1);
+		return LPAS_UNKNOWN_ERROR;
 	      break;
 
 	  case 'U' : /* Username */
@@ -474,7 +493,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      else
 	      {
 		_cupsLangPrintf(stderr, _("lpadmin: Unknown allow/deny option \"%s\"."), val);
-		return (1);
+		return LPAS_WRONG_PARAMETERS;
 	      }
 	      break;
 
@@ -508,7 +527,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 		  _cupsLangPrintf(stderr,
 				  _("lpadmin: Unable to connect to server: %s"),
 				  strerror(errno));
-		  return (1);
+		  return LPAS_SERVER_UNREACHABLE;
 		}
 	      }
 
@@ -533,11 +552,11 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      if (!validate_name(printer))
 	      {
 		_cupsLangPuts(stderr, _("lpadmin: Printer name can only contain printable characters."));
-		return (1);
+		return LPAS_WRONG_PARAMETERS;
 	      }
 
 	      if (delete_printer(http, printer))
-		return (1);
+		return LPAS_UNKNOWN_ERROR;
 
 	      i = argc;
 	      break;
@@ -631,9 +650,10 @@ main(int  argc,				/* I - Number of command-line arguments */
   }
   else if (ppd_name && !strcmp(ppd_name, "everywhere") && device_uri)
   {
-    if ((file = get_printer_ppd(device_uri, evefile, sizeof(evefile), &num_options, &options)) == NULL)
-      return (1);
-
+    lpadmin_status_t status;
+    if ((status = get_printer_ppd(device_uri, evefile, sizeof(evefile), &num_options, &options)) != LPAS_OK)
+      return (int)status;
+    file = evefile;
     num_options = cupsRemoveOption("ppd-name", num_options, &options);
   }
   else if (ppd_name || file)
@@ -648,7 +668,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       _cupsLangPuts(stderr,
                     _("lpadmin: Unable to set the printer options:\n"
                       "         You must specify a printer name first."));
-      return (1);
+      return LPAS_WRONG_PARAMETERS;
     }
 
     if (!http)
@@ -659,15 +679,15 @@ main(int  argc,				/* I - Number of command-line arguments */
       if (http == NULL) {
         _cupsLangPrintf(stderr, _("lpadmin: Unable to connect to server: %s"),
                         strerror(errno));
-        return (1);
+        return LPAS_SERVER_UNREACHABLE;
       }
     }
 
     if (set_printer_options(http, printer, num_options, options, file, enable))
-      return (1);
+      return LPAS_UNKNOWN_ERROR;
   }
   else if (enable && enable_printer(http, printer))
-    return (1);
+    return LPAS_UNKNOWN_ERROR;
 
   if (evefile[0])
     unlink(evefile);
@@ -678,7 +698,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   if (http)
     httpClose(http);
 
-  return (0);
+  return LPAS_OK;
 }
 
 
@@ -1164,7 +1184,7 @@ enable_printer(http_t *http,		/* I - Server connection */
  * 'get_printer_ppd()' - Get an IPP Everywhere PPD file for the given URI.
  */
 
-static char *				/* O  - Filename or NULL */
+lpadmin_status_t				/* O  - Status */
 get_printer_ppd(
     const char    *uri,			/* I  - Printer URI */
     char          *buffer,		/* I  - Filename buffer */
@@ -1196,7 +1216,7 @@ get_printer_ppd(
     if (!_httpResolveURI(uri, resolved, sizeof(resolved), _HTTP_RESOLVE_DEFAULT, NULL, NULL))
     {
       _cupsLangPrintf(stderr, _("%s: Unable to resolve \"%s\"."), "lpadmin", uri);
-      return (NULL);
+      return LPAS_PRINTER_UNREACHABLE;
     }
 
     uri = resolved;
@@ -1205,7 +1225,7 @@ get_printer_ppd(
   if (httpSeparateURI(HTTP_URI_CODING_ALL, uri, scheme, sizeof(scheme), userpass, sizeof(userpass), host, sizeof(host), &port, resource, sizeof(resource)) < HTTP_URI_STATUS_OK)
   {
     _cupsLangPrintf(stderr, _("%s: Bad printer URI \"%s\"."), "lpadmin", uri);
-    return (NULL);
+    return LPAS_UNKNOWN_ERROR;
   }
 
   // If the scheme is ippusb then a query is sent to the ippusb_manager service
@@ -1214,12 +1234,11 @@ get_printer_ppd(
   if (!strcmp(scheme, "ippusb")) {
     int sock = open_ippusb_manager_socket();
     if (sock < 0)
-      return (NULL);
+      return status_from_last_error_code();
 
     char* response = query_ippusb_manager(sock, host);
     if (response == NULL)
-      return (NULL);
-
+      return status_from_last_error_code();
     _cupsLangPrintf(stderr, _("lpadmin: received response \"%s\""), response);
 
     close(sock);
@@ -1227,14 +1246,14 @@ get_printer_ppd(
     int ret = snprintf(host, sizeof(host), "/run/ippusb/%s", response);
     if (ret < 0 || ret >= sizeof(host)) {
       _cupsLangPrintf(stderr, _("lpadmin: Failed to overwrite host"));
-      return (NULL);
+      return LPAS_UNKNOWN_ERROR;
     }
 
     free(response);
 
     // Wait a maximum of 3 seconds for the socket to be created.
     if (wait_for_socket(host, 3) < 0)
-      return (NULL);
+      return status_from_last_error_code();
   }
 
   http = httpConnect2(host, port, NULL, AF_UNSPEC,
@@ -1244,7 +1263,7 @@ get_printer_ppd(
   if (!http) {
     _cupsLangPrintf(stderr, _("%s: Unable to connect to \"%s:%d\": %s"),
                     "lpadmin", host, port, cupsLastErrorString());
-    return (NULL);
+    return status_from_last_error_code();
   }
 
   // Allow printers up to 15 seconds to respond since some can be quite slow
@@ -1268,7 +1287,7 @@ get_printer_ppd(
     if (!change_scheme(uri, "ipp", HTTP_MAX_URI, ippusb_uri)) {
       _cupsLangPrintf(stderr, _("%s: Failed to change uri to %s"), "lpadmin",
                       "ipp");
-      _exit(1);
+      return LPAS_UNKNOWN_ERROR;
     }
     use_ippusb = 1;
   }
@@ -1343,7 +1362,7 @@ get_printer_ppd(
     _cupsLangPrintf(stderr,
                     _("%s:  Failed to execute Get-Printer-Attributes request"),
 		      "lpadmin");
-    return (NULL);
+    return status_from_last_error_code();
   }
   if (!ippFindAttribute(response, "media-col-database", IPP_TAG_BEGIN_COLLECTION)) {
      ipp_t *request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
@@ -1375,9 +1394,12 @@ get_printer_ppd(
   httpClose(http);
 
   if (buffer[0])
-    return (buffer);
-  else
-    return (NULL);
+    return LPAS_OK;
+
+  if (ec_last_error() == EC_IPP_ATTRIBUTE)
+    return LPAS_PRINTER_NOT_AUTOCONFIGURABLE;
+
+  return status_from_last_error_code();
 }
 
 
@@ -1871,7 +1893,7 @@ usage(void)
   _cupsLangPuts(stdout, _("-v device-uri           Specify the device URI for the printer"));
   _cupsLangPuts(stdout, _("-x destination          Remove the named destination"));
 
-  exit(1);
+  exit(LPAS_WRONG_PARAMETERS);
 }
 
 
@@ -1915,4 +1937,23 @@ static ipp_t *request_document_formats(http_t *http, const char *resource,
                 "requested-attributes", sizeof(pattrs) / sizeof(pattrs[0]),
                 NULL, pattrs);
   return cupsDoRequest(http, request, resource);
+}
+
+
+static lpadmin_status_t status_from_last_error_code()
+{
+  switch (ec_last_error()) {
+  case EC_IO:
+    return LPAS_IO_ERROR;
+  case EC_MEMORY:
+    return LPAS_MEMORY_ALLOC_ERROR;
+  case EC_DESTINATION_UNREACHABLE:
+    return LPAS_PRINTER_UNREACHABLE;
+  case EC_UNEXPECTED_RESPONSE:
+    return LPAS_PRINTER_WRONG_RESPONSE;
+  default:
+    /* to avoid compiler's warning */
+    break;
+  }
+  return LPAS_UNKNOWN_ERROR;
 }

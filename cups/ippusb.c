@@ -2,6 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "error-codes.h"
 #include "ippusb-private.h"
 #include "language-private.h"
 
@@ -22,13 +23,15 @@
 int open_ippusb_manager_socket(void) {
   int fd;
 
+  EC_FUNC;
+
   _cupsLangPrintf(stderr, _("Attempting to open socket"));
 
   fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
   if (fd < 0) {
     _cupsLangPrintf(stderr, _("Failed to open stream socket: %s"),
                     strerror(errno));
-    return (-1);
+    RETURN_FAIL_UNKNOWN(-1);
   }
 
   _cupsLangPrintf(stderr, _("Attempting to connect to socket"));
@@ -42,27 +45,33 @@ int open_ippusb_manager_socket(void) {
     close(fd);
     _cupsLangPrintf(stderr, _("Failed to connect to socket: %s"),
                     strerror(errno));
-    return (-1);
+    if (errno == EADDRNOTAVAIL || errno == ETIMEDOUT || errno == ECONNREFUSED || errno == ENETUNREACH)
+      RETURN_FAIL_DESTINATION_UNREACHABLE(-1);
+    RETURN_FAIL_UNKNOWN(-1);
   }
 
-  return (fd);
+  RETURN_OK(fd);
 }
 
 // Writes a message to the socket described by |fd| as a stream of bytes. The
 // first byte represents the length of the message, and the following bytes are
 // filled using |msg|.
 int send_message(int fd, const char* msg) {
+  EC_FUNC;
+
   size_t remaining = strlen(msg) + 1;
   if (remaining > UINT8_MAX) {
     _cupsLangPrintf(stderr, _("The message to be sent is too large"));
-    return (-1);
+    RETURN_FAIL_UNKNOWN(-1);
   }
 
   // Send the length of the message.
   uint8_t message_length = (uint8_t) remaining;
   if (send(fd, &message_length, 1, 0) < 0) {
     _cupsLangPrintf(stderr, _("Failed to send message length"));
-    return (-1);
+    if (errno == EPIPE)
+      RETURN_FAIL_DESTINATION_UNREACHABLE(-1);
+    RETURN_FAIL_UNKNOWN(-1);
   }
 
   size_t total = 0;
@@ -72,7 +81,9 @@ int send_message(int fd, const char* msg) {
 
     if (sent < 0) {
       _cupsLangPrintf(stderr, _("Failed to send message"));
-      return (-1);
+      if (errno == EPIPE)
+        RETURN_FAIL_DESTINATION_UNREACHABLE(-1);
+      RETURN_FAIL_UNKNOWN(-1);
     }
 
     total += (size_t)sent;
@@ -82,10 +93,11 @@ int send_message(int fd, const char* msg) {
       remaining -= (size_t)sent;
   }
 
-  return (0);
+  RETURN_OK(0);
 }
 
 char* get_message(int fd) {
+  EC_FUNC;
   // Poll the file descriptor first before trying to read. In the event that
   // ippusb_manager exited unexpectedly before responding on the socket we want
   // to be able to exit before blocking on read.
@@ -95,7 +107,7 @@ char* get_message(int fd) {
   int timeout = 10000;
   if (poll(&poll_fd, 1, timeout) <= 0) {
     _cupsLangPrintf(stderr, _("Failed to receive response"));
-    return (NULL);
+    RETURN_FAIL_UNKNOWN(NULL);
   }
 
   // Get the first byte out of the stream which contains the length of the
@@ -103,12 +115,12 @@ char* get_message(int fd) {
   uint8_t message_length;
   if (recv(fd, &message_length, 1, 0) < 0) {
     _cupsLangPrintf(stderr, _("Failed to get message length"));
-    return (NULL);
+    RETURN_FAIL_UNKNOWN(NULL);
   }
 
   char* buf = (char*) malloc(sizeof(*buf) * message_length);
   if (buf == NULL)
-    return (NULL);
+    RETURN_FAIL_MEMORY(NULL);
   int gotten_size;
   size_t total_size = 0;
 
@@ -117,38 +129,39 @@ char* get_message(int fd) {
 
     if (gotten_size < 0) {
       _cupsLangPrintf(stderr, _("Failed to receive message"));
-      return (NULL);
+      RETURN_FAIL_UNKNOWN(NULL);
     }
 
     total_size += (size_t)gotten_size;
   }
 
-  return (buf);
+  RETURN_OK(buf);
 }
 
 char* query_ippusb_manager(int fd, const char* msg) {
+  EC_FUNC;
+
   _cupsLangPrintf(stderr, _("Attempting to write to ippusb_manager socket"));
   if (send_message(fd, msg) < 0)
-    return (NULL);
+    RETURN_FAIL(NULL);
 
   _cupsLangPrintf(stderr, _("Attempting to read response"));
   char* response = get_message(fd);
   if (response == NULL)
-    return (NULL);
-
+    RETURN_FAIL(NULL);
   _cupsLangPrintf(stderr, _("Finished reading response"));
 
   if (!valid_response(response)) {
     _cupsLangPrintf(stderr, _("Invalid response: ``%s''"), response);
-    return (NULL);
+    RETURN_FAIL_UNEXPECTED_RESPONSE(NULL);
   }
 
   if (!strcasecmp(response, "device not found")) {
     _cupsLangPrintf(stderr, _("Device not found"));
-    return (NULL);
+    RETURN_FAIL_DESTINATION_UNREACHABLE(NULL);
   }
 
-  return (response);
+  RETURN_OK(response);
 }
 
 int valid_response(const char* response) {
@@ -193,10 +206,12 @@ int change_scheme(const char* uri, const char* scheme, size_t n,
 }
 
 int wait_for_socket(const char* filename, long timeout) {
+  EC_FUNC;
+
   int fd = socket(AF_UNIX, SOCK_STREAM|SOCK_CLOEXEC, 0);
   if (fd < 0) {
     _cupsLangPrintf(stderr, _("Failed to create socket"));
-    return (-1);
+    RETURN_FAIL_UNKNOWN(-1);
   }
 
   struct sockaddr_un addr;
@@ -211,7 +226,7 @@ int wait_for_socket(const char* filename, long timeout) {
   if (clock_gettime(CLOCK_MONOTONIC, &start) < 0) {
     _cupsLangPrintf(stderr, _("Failed to get clock time"));
     close(fd);
-    return (-1);
+    RETURN_FAIL_UNKNOWN(-1);
   }
 
   while (connect(fd, (struct sockaddr*) &addr, sizeof(addr)) < 0) {
@@ -219,13 +234,13 @@ int wait_for_socket(const char* filename, long timeout) {
     if (clock_gettime(CLOCK_MONOTONIC, &current) < 0) {
       _cupsLangPrintf(stderr, _("Failed to get clock time"));
       close(fd);
-      return (-1);
+      RETURN_FAIL_UNKNOWN(-1);
     }
 
     if (current.tv_sec - start.tv_sec >= timeout) {
       _cupsLangPrintf(stderr, _("Timed out waiting for socket %s"), filename);
       close(fd);
-      return (-1);
+      RETURN_FAIL_DESTINATION_UNREACHABLE(-1);
     }
     usleep(100);
   }
@@ -233,5 +248,5 @@ int wait_for_socket(const char* filename, long timeout) {
   _cupsLangPrintf(stderr, _("%s is now ready for connections"), filename);
 
   close(fd);
-  return (0);
+  RETURN_OK(0);
 }
