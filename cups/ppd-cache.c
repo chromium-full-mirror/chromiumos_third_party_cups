@@ -12,6 +12,7 @@
  */
 
 #include "cups-private.h"
+#include "error-codes.h"
 #include "ppd-private.h"
 #include "debug-internal.h"
 #include <math.h>
@@ -3114,6 +3115,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   cups_array_t		*fin_options = NULL;
 					/* Finishing options */
 
+  EC_FUNC;
 
  /*
   * Range check input...
@@ -3125,13 +3127,13 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   if (!buffer || bufsize < 1)
   {
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(EINVAL), 0);
-    return (NULL);
+    RETURN_FAIL_INPUT_PARAMETER(NULL);
   }
 
   if (!response)
   {
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("No IPP attributes."), 1);
-    return (NULL);
+    RETURN_FAIL_INPUT_PARAMETER(NULL);
   }
 
  /*
@@ -3141,7 +3143,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   if ((fp = cupsTempFile2(buffer, (int)bufsize)) == NULL)
   {
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
-    return (NULL);
+    RETURN_FAIL(NULL);
   }
 
  /*
@@ -4826,7 +4828,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 
   cupsFileClose(fp);
 
-  return (buffer);
+  RETURN_OK(buffer);
 
  /*
   * If we get here then there was a problem creating the PPD...
@@ -4839,8 +4841,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   *buffer = '\0';
 
   _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Printer does not support required IPP attributes or document formats."), 1);
-
-  return (NULL);
+  RETURN_FAIL_IPP_ATTRIBUTE(NULL);
 }
 
 

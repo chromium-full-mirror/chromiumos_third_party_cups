@@ -17,6 +17,7 @@
  * Include necessary headers...
  */
 
+#include "error-codes.h"
 #include "file-private.h"
 #include "debug-internal.h"
 #include <sys/stat.h>
@@ -1198,6 +1199,7 @@ cupsFileOpenFd(int        fd,		/* I - File descriptor */
 {
   cups_file_t	*fp;			/* New CUPS file */
 
+  EC_FUNC;
 
   DEBUG_printf(("cupsFileOpenFd(fd=%d, mode=\"%s\")", fd, mode));
 
@@ -1208,14 +1210,14 @@ cupsFileOpenFd(int        fd,		/* I - File descriptor */
   if (fd < 0 || !mode ||
       (*mode != 'r' && *mode != 'w' && *mode != 'a' && *mode != 's') ||
       (*mode == 'a' && isdigit(mode[1] & 255)))
-    return (NULL);
+    RETURN_FAIL_INPUT_PARAMETER(NULL);
 
  /*
   * Allocate memory...
   */
 
   if ((fp = calloc(1, sizeof(cups_file_t))) == NULL)
-    return (NULL);
+    RETURN_FAIL_MEMORY(NULL);
 
  /*
   * Open the file...
@@ -1283,7 +1285,7 @@ cupsFileOpenFd(int        fd,		/* I - File descriptor */
 	break;
 
     default : /* Remove bogus compiler warning... */
-        return (NULL);
+        RETURN_FAIL_UNKNOWN(NULL);
   }
 
  /*
@@ -1294,7 +1296,7 @@ cupsFileOpenFd(int        fd,		/* I - File descriptor */
   fcntl(fp->fd, F_SETFD, fcntl(fp->fd, F_GETFD) | FD_CLOEXEC);
 #endif /* !_WIN32 */
 
-  return (fp);
+  RETURN_OK(fp);
 }
 
 
