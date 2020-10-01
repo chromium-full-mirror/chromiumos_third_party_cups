@@ -3317,7 +3317,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   if ((attr = ippFindAttribute(response, "media-bottom-margin-supported", IPP_TAG_INTEGER)) != NULL)
   {
     for (i = 1, bottom = ippGetInteger(attr, 0), count = ippGetCount(attr); i < count; i ++)
-      if (ippGetInteger(attr, i) > bottom)
+      if (ippGetInteger(attr, i) < bottom)
         bottom = ippGetInteger(attr, i);
   }
   else
@@ -3326,7 +3326,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   if ((attr = ippFindAttribute(response, "media-left-margin-supported", IPP_TAG_INTEGER)) != NULL)
   {
     for (i = 1, left = ippGetInteger(attr, 0), count = ippGetCount(attr); i < count; i ++)
-      if (ippGetInteger(attr, i) > left)
+      if (ippGetInteger(attr, i) < left)
         left = ippGetInteger(attr, i);
   }
   else
@@ -3335,7 +3335,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   if ((attr = ippFindAttribute(response, "media-right-margin-supported", IPP_TAG_INTEGER)) != NULL)
   {
     for (i = 1, right = ippGetInteger(attr, 0), count = ippGetCount(attr); i < count; i ++)
-      if (ippGetInteger(attr, i) > right)
+      if (ippGetInteger(attr, i) < right)
         right = ippGetInteger(attr, i);
   }
   else
@@ -3344,7 +3344,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
   if ((attr = ippFindAttribute(response, "media-top-margin-supported", IPP_TAG_INTEGER)) != NULL)
   {
     for (i = 1, top = ippGetInteger(attr, 0), count = ippGetCount(attr); i < count; i ++)
-      if (ippGetInteger(attr, i) > top)
+      if (ippGetInteger(attr, i) < top)
         top = ippGetInteger(attr, i);
   }
   else
