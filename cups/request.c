@@ -238,7 +238,7 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
     DEBUG_printf(("2cupsDoIORequest: status=%d", status));
 
     if (status == HTTP_STATUS_ERROR ||
-        (status >= HTTP_STATUS_BAD_REQUEST && status != HTTP_STATUS_UNAUTHORIZED &&
+        (status >= HTTP_STATUS_MULTIPLE_CHOICES && status != HTTP_STATUS_UNAUTHORIZED &&
 	 status != HTTP_STATUS_UPGRADE_REQUIRED))
     {
       _cupsSetHTTPError(status);
