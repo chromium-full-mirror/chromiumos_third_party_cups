@@ -829,12 +829,15 @@ cupsdDeletePrinter(
   ippDelete(p->attrs);
   ippDelete(p->ppd_attrs);
 
+  _ppdCacheDestroy(p->pc);
+
   mimeDeleteType(MimeDatabase, p->filetype);
   mimeDeleteType(MimeDatabase, p->prefiltertype);
 
   cupsdFreeStrings(&(p->users));
   cupsdFreeQuotas(p);
 
+  cupsdClearString(&p->uuid);
   cupsdClearString(&p->uri);
   cupsdClearString(&p->hostname);
   cupsdClearString(&p->name);
@@ -4750,6 +4753,7 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     add_resolution_mappings(option_mappings, p->ppd_attrs, ppd, p->name);
     ippAddCollection(p->ppd_attrs, IPP_TAG_PRINTER, "option-mappings",
                      option_mappings);
+    ippDelete(option_mappings);
 
 #ifdef HAVE_APPLICATIONSERVICES_H
    /*
@@ -5260,16 +5264,13 @@ add_job_password_mappings(
          * from being added to the filters when job-password is being remapped.
          * There is no encryption for OEM-specific PIN options.
          */
+        ippDelete(mapping);
         mapping = ippNew();
         ippAddCollection(mappings, IPP_TAG_ZERO, "job-password-encryption",
                          mapping);
-        /* To avoid freeing below */
-        mapping = NULL;
-      }
-      if (mapping) {
-        ippDelete(mapping);
       }
     }
+    ippDelete(mapping);
   }
 }
 
@@ -5426,7 +5427,9 @@ add_resolution_mappings(
       ippAddString(ipp_attr, IPP_TAG_ZERO, IPP_TAG_TEXT, "printer-resolution", NULL, "%s");
       ippAddString(ipp_attr, IPP_TAG_ZERO, IPP_TAG_TEXT, res_name, NULL, "%s");
       ippAddCollection(ipp_attr, IPP_TAG_ZERO, "_mapping", mapping);
+      ippDelete(mapping);
       ippAddCollection(mappings, IPP_TAG_ZERO, "printer-resolution", ipp_attr);
+      ippDelete(ipp_attr);
       return;
     }
   }
