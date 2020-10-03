@@ -1337,6 +1337,18 @@ get_printer_ppd(
 		      "lpadmin");
     return (NULL);
   }
+  if (!ippFindAttribute(response, "media-col-database", IPP_TAG_BEGIN_COLLECTION)) {
+     ipp_t *request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
+     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
+                    use_ippusb ? ippusb_uri : uri);
+     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
+                  "requested-attributes", NULL, "media-col-database");
+     ipp_t *db = cupsDoRequest(http, request, resource);
+     if (db) {
+       ippCopyAttribute(response, ippFindAttribute(db, "media-col-database", IPP_TAG_BEGIN_COLLECTION), 0);
+       ippDelete(db);
+     }
+  }
   if (_ppdCreateFromIPP(buffer, bufsize, response))
   {
     if (!cupsGetOption("printer-geo-location", *num_options, *options) && (attr = ippFindAttribute(response, "printer-geo-location", IPP_TAG_URI)) != NULL)
