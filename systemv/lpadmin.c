@@ -1213,7 +1213,13 @@ get_printer_ppd(
   // socket used for communication with the printer.
   if (!strcmp(scheme, "ippusb")) {
     int sock = open_ippusb_manager_socket();
+    if (sock < 0)
+      return (NULL);
+
     char* response = query_ippusb_manager(sock, host);
+    if (response == NULL)
+      return (NULL);
+
     _cupsLangPrintf(stderr, _("lpadmin: received response \"%s\""), response);
 
     close(sock);
@@ -1221,13 +1227,14 @@ get_printer_ppd(
     int ret = snprintf(host, sizeof(host), "/run/ippusb/%s", response);
     if (ret < 0 || ret >= sizeof(host)) {
       _cupsLangPrintf(stderr, _("lpadmin: Failed to overwrite host"));
-      _exit(1);
+      return (NULL);
     }
 
     free(response);
 
     // Wait a maximum of 3 seconds for the socket to be created.
-    wait_for_socket(host, 3);
+    if (wait_for_socket(host, 3) < 0)
+      return (NULL);
   }
 
   http = httpConnect2(host, port, NULL, AF_UNSPEC,
