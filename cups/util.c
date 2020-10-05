@@ -1177,3 +1177,38 @@ int _cupsSearchFilterLatest(const char *filter_name, char *full_path,
   }
   return 3;
 }
+
+/* See cups-private.h for description. */
+ssize_t _cupsWriteWrapper(const int filedes, const void *buffer, const size_t size) {
+  /* The maximum number of allowed "soft" write(...) failures in a row. */
+  const int max_number_of_failures = 8;
+  int number_of_failures = 0;
+
+  for (size_t to_write = size; to_write > 0; ) {
+    const ssize_t written = write(filedes, buffer, to_write);
+
+    /* Checking for errors. */
+    if (written < 0) {
+      if (errno == EWOULDBLOCK || errno == EAGAIN || errno == EINTR) {
+        /* We can try to write again; but the function
+         * must fail if we reached the limit of failing calls. */
+        if (++number_of_failures > max_number_of_failures)
+          return -1;
+        /* Wait 20ms and try to call write(...) again. */
+        usleep(20*1000);
+        continue;
+      } else {
+        /* We cannot deal with this error, the function must fail.*/
+        return -1;
+      }
+    }
+
+    /* A chunk of data was written successfully. */
+    buffer += written;
+    to_write -= (size_t)written;
+    number_of_failures = 0;
+  }
+
+  /* Everything was written successfully - success. */
+  return (ssize_t)size;
+}

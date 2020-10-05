@@ -603,12 +603,11 @@ cupsSideChannelWrite(
     bytes += datalen;
   }
 
-  while (write(CUPS_SC_FD, buffer, (size_t)bytes) < 0)
-    if (errno != EINTR && errno != EAGAIN)
-    {
-      _cupsBufferRelease(buffer);
-      return (-1);
-    }
+  if (_cupsWriteWrapper(CUPS_SC_FD, buffer, (size_t)bytes) < 0)
+  {
+    _cupsBufferRelease(buffer);
+    return (-1);
+  }
 
   _cupsBufferRelease(buffer);
 

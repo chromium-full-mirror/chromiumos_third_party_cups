@@ -250,8 +250,8 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       */
 
       while ((bytes = httpRead2(http, buffer, sizeof(buffer))) > 0)
-	if (write(outfile, buffer, (size_t)bytes) < bytes)
-	  break;
+        if (_cupsWriteWrapper(outfile, buffer, (size_t)bytes) < 0)
+          break;
     }
 
     if (http->state != HTTP_STATE_WAITING)
