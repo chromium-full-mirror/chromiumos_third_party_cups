@@ -298,6 +298,12 @@ extern int		_cupsSetNegotiateAuthString(http_t *http, const char *method, const 
 #  endif /* HAVE_GSSAPI */
 extern char		*_cupsUserDefault(char *name, size_t namesize) _CUPS_INTERNAL;
 
+/* It is wrapper around write(filedes,buffer,size) function. It calls the
+ * function in loop until |size| bytes is written or an error occurs. Errors
+ * EWOULDBLOCK, EAGAIN, EINTR are handled in this function. It returns |size|
+ * for a success and -1 in case of an failure.
+ */
+ssize_t _cupsWriteWrapper(int filedes, const void *buffer, size_t size);
 
 /*
  * C++ magic...

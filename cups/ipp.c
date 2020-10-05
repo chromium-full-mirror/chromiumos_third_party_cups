@@ -6858,14 +6858,10 @@ ipp_set_value(ipp_t           *ipp,	/* IO - IPP message */
  * 'ipp_write_file()' - Write IPP data to a file.
  */
 
-static ssize_t				/* O - Number of bytes written */
+static ssize_t				/* O - Number of bytes written (<0 or |length|) */
 ipp_write_file(int         *fd,		/* I - File descriptor */
                ipp_uchar_t *buffer,	/* I - Data to write */
                size_t      length)	/* I - Number of bytes to write */
 {
-#ifdef _WIN32
-  return ((ssize_t)write(*fd, buffer, (unsigned)length));
-#else
-  return (write(*fd, buffer, length));
-#endif /* _WIN32 */
+  return _cupsWriteWrapper(*fd, buffer, length);
 }
