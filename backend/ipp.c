@@ -663,9 +663,15 @@ main(int  argc,				/* I - Number of command-line args */
   // socket used for communication with the printer.
   if (!strcmp(scheme, "ippusb")) {
     int sock = open_ippusb_manager_socket();
+    if (sock < 0)
+      _exit(1);
+
     char* response = query_ippusb_manager(sock, hostname);
 
     close(sock);
+
+    if (response == NULL)
+      _exit(1);
 
     int ret = snprintf(hostname, sizeof(hostname), "/run/ippusb/%s", response);
     if (ret < 0 || ret >= sizeof(hostname)) {
@@ -680,7 +686,8 @@ main(int  argc,				/* I - Number of command-line args */
     strcpy(scheme, "ipp");
 
     // Wait a maximum of 3 seconds for the socket to be created.
-    wait_for_socket(hostname, 3);
+    if (wait_for_socket(hostname, 3) < 0)
+      _exit(1);
   }
 
   addrlist = backendLookup(hostname, port, &job_canceled);
