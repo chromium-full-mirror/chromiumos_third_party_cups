@@ -233,9 +233,11 @@ uninstall:
 .PHONY:	compile-test
 compile-test:	all
 	echo Making google unit tests...
+	cd cups && $(MAKE) $(MFLAGS) googletests
 	cd scheduler && $(MAKE) $(MFLAGS) googletests
 
 check test:	compile-test
+	./cups/googletests
 	./scheduler/googletests
 
 

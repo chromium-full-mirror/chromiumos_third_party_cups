@@ -25,6 +25,7 @@ COREOBJS	=	\
 		dest-options.o \
 		dir.o \
 		encode.o \
+		error-codes.o \
 		file.o \
 		getputfile.o \
 		globals.o \
@@ -110,10 +111,16 @@ TESTOBJS	= \
 		testsnmp.o \
 		testthreads.o \
 		tlscheck.o
+
+GTEST_OBJS	= \
+		error-codes_unittest.o \
+		googletests.o
+
 OBJS	=	\
 		$(LIBOBJS) \
 		$(IMAGEOBJS) \
-		$(TESTOBJS)
+		$(TESTOBJS) \
+		$(GTEST_OBJS)
 
 
 #
@@ -487,6 +494,15 @@ rasterbench:	rasterbench.o $(LIBCUPSSTATIC)
 	echo Linking $@...
 	$(LD_CC) $(ALL_LDFLAGS) -o $@ rasterbench.o $(LINKCUPSSTATIC)
 	$(CODE_SIGN) -s "$(CODE_SIGN_IDENTITY)" $@
+
+
+#
+# Make the google unit tests, "googletests"
+#
+
+googletests:	$(GTEST_OBJS) error-codes.o
+	echo Linking $@...
+	$(LD_CXX) $(LDFLAGS) -o $@ $^ $(shell $(PKG_CONFIG) --libs gtest)
 
 
 #
