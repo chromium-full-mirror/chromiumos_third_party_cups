@@ -189,8 +189,12 @@ cupsGetFd(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_DEFA
     * Yes, copy the file...
     */
 
-    while ((bytes = httpRead2(http, buffer, sizeof(buffer))) > 0)
-      write(fd, buffer, (size_t)bytes);
+    while ((bytes = httpRead2(http, buffer, sizeof(buffer))) > 0) {
+      if (_cupsWriteWrapper(fd, buffer, (size_t)bytes) < 0) {
+        status = HTTP_STATUS_ERROR;
+        break;
+      }
+    }
   }
   else
   {
