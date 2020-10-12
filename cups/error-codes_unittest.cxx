@@ -47,7 +47,7 @@ bool ComplexFuncReturnOk() {
   RETURN_OK(true);
 }
 
-} // namespace
+}  // namespace
 
 // Calling a function that succeeds (reports no errors).
 TEST(ErrorCodes, ReturnOk) {
