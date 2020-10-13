@@ -39,70 +39,70 @@ typedef enum error_code_e {
  *         no error codes were reported.
  * |func| must be not nullptr for all these functions.
  */
-void _ec_begin(const char *const func);
-void _ec_end(const char *const func, const error_code_t err);
-void _ec_end_auto(const char *const func);
+void _ec_begin(const char* const func);
+void _ec_end(const char* const func, const error_code_t err);
+void _ec_end_auto(const char* const func);
 
 /* This macro must be put at the beginning of every function using RETURN_*
  * macros. After that, all return statements in this function must be replaced
  * by proper RETURN_* macro.
  */
-#define EC_FUNC                                                                \
-  static const char *const _ec_func = __func__;                                \
+#define EC_FUNC                                 \
+  static const char* const _ec_func = __func__; \
   _ec_begin(_ec_func);
 
 /* Returns |return_value| and report a success. */
-#define RETURN_OK(return_value)                                                \
-  {                                                                            \
-    _ec_end(_ec_func, EC_NONE);                                                \
-    return (return_value);                                                     \
+#define RETURN_OK(return_value) \
+  {                             \
+    _ec_end(_ec_func, EC_NONE); \
+    return (return_value);      \
   }
 
 /* Returns |return_value| and report a corresponding error code. */
-#define RETURN_FAIL_UNKNOWN(return_value)                                      \
-  {                                                                            \
-    _ec_end(_ec_func, EC_UNKNOWN);                                             \
-    return (return_value);                                                     \
+#define RETURN_FAIL_UNKNOWN(return_value) \
+  {                                       \
+    _ec_end(_ec_func, EC_UNKNOWN);        \
+    return (return_value);                \
   }
-#define RETURN_FAIL_INPUT_PARAMETER(return_value)                              \
-  {                                                                            \
-    _ec_end(_ec_func, EC_INPUT_PARAMETER);                                     \
-    return (return_value);                                                     \
+#define RETURN_FAIL_INPUT_PARAMETER(return_value) \
+  {                                               \
+    _ec_end(_ec_func, EC_INPUT_PARAMETER);        \
+    return (return_value);                        \
   }
-#define RETURN_FAIL_IO(return_value)                                           \
-  {                                                                            \
-    _ec_end(_ec_func, EC_IO);                                                  \
-    return (return_value);                                                     \
+#define RETURN_FAIL_IO(return_value) \
+  {                                  \
+    _ec_end(_ec_func, EC_IO);        \
+    return (return_value);           \
   }
-#define RETURN_FAIL_MEMORY(return_value)                                       \
-  {                                                                            \
-    _ec_end(_ec_func, EC_MEMORY);                                              \
-    return (return_value);                                                     \
+#define RETURN_FAIL_MEMORY(return_value) \
+  {                                      \
+    _ec_end(_ec_func, EC_MEMORY);        \
+    return (return_value);               \
   }
-#define RETURN_FAIL_DESTINATION_UNREACHABLE(return_value)                      \
-  {                                                                            \
-    _ec_end(_ec_func, EC_DESTINATION_UNREACHABLE);                             \
-    return (return_value);                                                     \
+#define RETURN_FAIL_DESTINATION_UNREACHABLE(return_value) \
+  {                                                       \
+    _ec_end(_ec_func, EC_DESTINATION_UNREACHABLE);        \
+    return (return_value);                                \
   }
-#define RETURN_FAIL_UNEXPECTED_RESPONSE(return_value)                          \
-  {                                                                            \
-    _ec_end(_ec_func, EC_UNEXPECTED_RESPONSE);                                 \
-    return (return_value);                                                     \
+#define RETURN_FAIL_UNEXPECTED_RESPONSE(return_value) \
+  {                                                   \
+    _ec_end(_ec_func, EC_UNEXPECTED_RESPONSE);        \
+    return (return_value);                            \
   }
-#define RETURN_FAIL_IPP_ATTRIBUTE(return_value)                                \
-  {                                                                            \
-    _ec_end(_ec_func, EC_IPP_ATTRIBUTE);                                       \
-    return (return_value);                                                     \
+#define RETURN_FAIL_IPP_ATTRIBUTE(return_value) \
+  {                                             \
+    _ec_end(_ec_func, EC_IPP_ATTRIBUTE);        \
+    return (return_value);                      \
   }
 
 /* Returns |return_value| and report an the last error code from the current
  * function or functions called within the current function. If no errors were
  * reported it reports EC_UNKNOWN.
  */
-#define RETURN_FAIL(return_value)                                              \
-  {                                                                            \
-    _ec_end_auto(_ec_func);                                                    \
-    return (return_value);                                                     \
+#define RETURN_FAIL(return_value) \
+  {                               \
+    _ec_end_auto(_ec_func);       \
+    return (return_value);        \
   }
 
 /* Returns the last error code reported in the current function or functions
