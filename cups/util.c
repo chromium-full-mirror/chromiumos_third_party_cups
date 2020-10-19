@@ -14,6 +14,7 @@
 
 #include "cups-private.h"
 #include "debug-internal.h"
+#include "error-codes.h"
 #include <dirent.h>
 #include <fcntl.h>
 #include <ftw.h>
@@ -1180,6 +1181,8 @@ int _cupsSearchFilterLatest(const char *filter_name, char *full_path,
 
 /* See cups-private.h for description. */
 ssize_t _cupsWriteWrapper(const int filedes, const void *buffer, const size_t size) {
+  EC_FUNC;
+
   /* The maximum number of allowed "soft" write(...) failures in a row. */
   const int max_number_of_failures = 8;
   int number_of_failures = 0;
@@ -1193,13 +1196,17 @@ ssize_t _cupsWriteWrapper(const int filedes, const void *buffer, const size_t si
         /* We can try to write again; but the function
          * must fail if we reached the limit of failing calls. */
         if (++number_of_failures > max_number_of_failures)
-          return -1;
+          RETURN_FAIL_UNKNOWN(-1);
+
         /* Wait 20ms and try to call write(...) again. */
         usleep(20*1000);
         continue;
+      } else if (errno == EIO || errno == ENOSPC) {
+        /* We cannot deal with this error, the function must fail.*/
+        RETURN_FAIL_IO(-1);
       } else {
         /* We cannot deal with this error, the function must fail.*/
-        return -1;
+        RETURN_FAIL_UNKNOWN(-1);
       }
     }
 
@@ -1210,5 +1217,5 @@ ssize_t _cupsWriteWrapper(const int filedes, const void *buffer, const size_t si
   }
 
   /* Everything was written successfully - success. */
-  return (ssize_t)size;
+  RETURN_OK((ssize_t)size);
 }

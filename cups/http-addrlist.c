@@ -14,6 +14,7 @@
 
 #include "cups-private.h"
 #include "debug-internal.h"
+#include "error-codes.h"
 #ifdef HAVE_RESOLV_H
 #  include <resolv.h>
 #endif /* HAVE_RESOLV_H */
@@ -87,6 +88,7 @@ httpAddrConnect2(
   char			temp[256];	/* Temporary address string */
 #endif /* DEBUG */
 
+  EC_FUNC;
 
   DEBUG_printf(("httpAddrConnect2(addrlist=%p, sock=%p, msec=%d, cancel=%p)", (void *)addrlist, (void *)sock, msec, (void *)cancel));
 
@@ -94,11 +96,11 @@ httpAddrConnect2(
   {
     errno = EINVAL;
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
-    return (NULL);
+    RETURN_FAIL_INPUT_PARAMETER(NULL);
   }
 
   if (cancel && *cancel)
-    return (NULL);
+    RETURN_FAIL_UNKNOWN(NULL);
 
   if (msec <= 0)
     msec = INT_MAX;
@@ -120,7 +122,7 @@ httpAddrConnect2(
 	httpAddrClose(NULL, fds[nfds]);
       }
 
-      return (NULL);
+      RETURN_FAIL_UNKNOWN(NULL);
     }
 
     if (addrlist && nfds < (int)(sizeof(fds) / sizeof(fds[0])))
@@ -208,7 +210,7 @@ httpAddrConnect2(
 	  httpAddrClose(NULL, fds[nfds]);
 	}
 
-	return (addrlist);
+	RETURN_OK(addrlist);
       }
 
 #ifdef _WIN32
@@ -265,7 +267,7 @@ httpAddrConnect2(
 
 	*sock = -1;
 
-	return (NULL);
+	RETURN_FAIL_UNKNOWN(NULL);
       }
 
 #  ifdef HAVE_POLL
@@ -358,7 +360,7 @@ httpAddrConnect2(
         for (j ++; j < nfds; j ++)
           httpAddrClose(NULL, fds[j]);
 
-        return (connaddr);
+        RETURN_OK(connaddr);
       }
     }
 #endif /* O_NONBLOCK */
@@ -381,7 +383,7 @@ httpAddrConnect2(
   _cupsSetError(IPP_STATUS_ERROR_SERVICE_UNAVAILABLE, strerror(errno), 0);
 #endif /* _WIN32 */
 
-  return (NULL);
+  RETURN_FAIL_DESTINATION_UNREACHABLE(NULL);
 }
 
 
