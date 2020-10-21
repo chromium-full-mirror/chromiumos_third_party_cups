@@ -405,7 +405,7 @@ cupsGetResponse(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       ippDelete(response);
       response = NULL;
 
-      http->status = status = HTTP_STATUS_ERROR;
+      http->status = HTTP_STATUS_ERROR;
       http->error  = EINVAL;
     }
   }
@@ -432,7 +432,7 @@ cupsGetResponse(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
       if (!cupsDoAuthentication(http, "POST", resource))
         httpReconnect2(http, 30000, NULL);
       else
-        http->status = status = HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED;
+        http->status = HTTP_STATUS_CUPS_AUTHORIZATION_CANCELED;
     }
 
 #ifdef HAVE_SSL
