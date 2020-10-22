@@ -104,7 +104,7 @@ char* get_message(int fd) {
   struct pollfd poll_fd;
   poll_fd.fd = fd;
   poll_fd.events = POLLIN;
-  int timeout = 5000;
+  int timeout = 10000;
   if (poll(&poll_fd, 1, timeout) <= 0) {
     _cupsLangPrintf(stderr, _("Failed to receive response"));
     RETURN_FAIL_UNKNOWN(NULL);
