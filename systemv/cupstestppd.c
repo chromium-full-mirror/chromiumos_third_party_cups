@@ -100,8 +100,10 @@ static int	check_filters(ppd_file_t *ppd, const char *root, int errors,
 static int	check_profiles(ppd_file_t *ppd, const char *root, int errors,
 		               int verbose, int warn);
 static int	check_sizes(ppd_file_t *ppd, int errors, int verbose, int warn);
+#ifdef HAVE_LOCALIZATION
 static int	check_translations(ppd_file_t *ppd, int errors, int verbose,
 		                   int warn);
+#endif
 static void	show_conflicts(ppd_file_t *ppd, const char *prefix);
 static int	test_raster(ppd_file_t *ppd, int verbose);
 static void	usage(void) _CUPS_NORETURN;
@@ -1164,8 +1166,10 @@ main(int  argc,				/* I - Number of command-line args */
       if (!(warn & WARN_SIZES))
 	errors = check_sizes(ppd, errors, verbose, 0);
 
+#ifdef HAVE_LOCALIZATION
       if (!(warn & WARN_TRANSLATIONS))
         errors = check_translations(ppd, errors, verbose, 0);
+#endif
 
       if (!(warn & WARN_DUPLEX))
         errors = check_duplex(ppd, errors, verbose, 0);
@@ -1303,8 +1307,10 @@ main(int  argc,				/* I - Number of command-line args */
         else
 	  errors = check_sizes(ppd, errors, verbose, 2);
 
+#ifdef HAVE_LOCALIZATION
 	if (warn & WARN_TRANSLATIONS)
 	  errors = check_translations(ppd, errors, verbose, 1);
+#endif
 
 	if (warn & WARN_DUPLEX)
 	  errors = check_duplex(ppd, errors, verbose, 1);
@@ -3445,6 +3451,7 @@ check_sizes(ppd_file_t *ppd,		/* I - PPD file */
 }
 
 
+#ifdef HAVE_LOCALIZATION
 /*
  * 'check_translations()' - Check translations in the PPD file.
  */
@@ -3734,6 +3741,7 @@ check_translations(ppd_file_t *ppd,	/* I - PPD file */
 
   return (errors);
 }
+#endif /* HAVE_LOCALIZATION */
 
 
 /*

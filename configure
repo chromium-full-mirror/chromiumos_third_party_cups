@@ -891,6 +891,7 @@ with_xinetd
 with_languages
 with_bundledir
 with_bundlelang
+enable_localization
 with_exe_file_perm
 with_config_file_perm
 with_cupsd_file_perm
@@ -1574,6 +1575,7 @@ Optional Features:
 			  disable DefaultShared by default
   --disable-raw-printing  do not allow raw printing by default
   --enable-webif          enable the web interface by default, default=no for macOS
+  --enable-localization   build with localization features enabled
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -9304,6 +9306,19 @@ else
 	CUPS_RESOURCEDIR=""
 fi
 
+
+# Check whether --enable-localization was given.
+if test "${enable_localization+set}" = set; then :
+  enableval=$enable_localization;
+fi
+
+if test x$enable_localization = xyes; then
+	$as_echo "#define HAVE_LOCALIZATION 1" >>confdefs.h
+else
+	LANGUAGES=""
+	CUPS_RESOURCEDIR=""
+	CUPS_BUNDLEDIR=""
+fi
 
 
 # Check whether --with-exe_file_perm was given.
