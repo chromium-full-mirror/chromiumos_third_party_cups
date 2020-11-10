@@ -45,5 +45,6 @@ Changes in CUPS v2.3.3op1
 - Fixed remote access to the cupsd.conf and log files (Issue #24)
 - Fixed fax phone number handling with GNOME (Issue #40)
 - Fixed potential rounding error in rastertopwg filter (Issue #41)
+- Fixed the "uri-security-supported" value from the scheduler (Issue #42)
 - Fixed IPP backend crash bug with "printer-alert" values (Issue #43)
 - Fixed crash in rastertopwg (Apple issue #5773)
