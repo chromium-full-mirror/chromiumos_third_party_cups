@@ -41,6 +41,8 @@ cgi-bin/testhi.c
 cgi-bin/testtemplate.c
 cgi-bin/var.c
 conf/Makefile
+configure
+configure.ac
 cups/adminutil.c
 cups/adminutil.h
 cups/array.c
@@ -285,6 +287,11 @@ scheduler/testsub.c
 scheduler/type.c
 scheduler/util.c
 scheduler/util.h
+scripts/checkglobals
+scripts/listpublic
+scripts/makecups
+scripts/makerpm
+scripts/makesrcdist
 systemv/cancel.c
 systemv/cupsaccept.c
 systemv/cupsctl.c
