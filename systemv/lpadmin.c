@@ -1310,7 +1310,7 @@ get_printer_ppd(
   // PDF > PWG-Raster > everything else
   ipp_t *document_formats_response =
       request_document_formats(http, resource, use_ippusb ? ippusb_uri : uri);
-  ipp_attribute_t *document_format = NULL;
+  int document_format = 0;
   if (document_formats_response == NULL) {
     _cupsLangPrintf(stderr,
                     _("%s: Failed to execute Get-Printer-Attributes request "
@@ -1328,10 +1328,12 @@ get_printer_ppd(
       // If |document_formats| contains one of our preferred input types, then
       // specify that type in our Get-Printer-Attributes request.
       if (ippContainsString(document_formats, "application/pdf")) {
-        document_format = ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_MIMETYPE,
+        document_format = 1;
+	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_MIMETYPE,
                                        "document-format", NULL, "application/pdf");
       } else if (ippContainsString(document_formats, "image/pwg-raster")) {
-        document_format = ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_MIMETYPE,
+        document_format = 1;
+	ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_MIMETYPE,
                                        "document-format", NULL, "image/pwg-raster");
       } else {
         _cupsLangPrintf(stderr,
@@ -1349,7 +1351,9 @@ get_printer_ppd(
                     _("%s: Failed to execute Get-Printer-Attributes request"
 		      " - retrying without document-format attribute..."),
 		      "lpadmin");
-    ippDeleteAttribute(request, document_format);
+    request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
+                 use_ippusb ? ippusb_uri : uri);
     response = cupsDoRequest(http, request, resource);
   }
   if (cupsLastError() >= IPP_STATUS_REDIRECTION_OTHER_SITE)
