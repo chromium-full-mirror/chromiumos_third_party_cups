@@ -1,6 +1,7 @@
 #
 # Scheduler Makefile for CUPS.
 #
+# Copyright © 2020 by Michael R Sweet
 # Copyright © 2007-2019 by Apple Inc.
 # Copyright © 1997-2007 by Easy Software Products, all rights reserved.
 #
@@ -196,11 +197,11 @@ install-data:
 	if test "x$(SYSTEMD_DIR)" != x; then \
 		echo Installing systemd configuration files...; \
 		$(INSTALL_DIR) $(BUILDROOT)$(SYSTEMD_DIR); \
-		$(INSTALL_DATA) org.cups.cupsd.path $(BUILDROOT)$(SYSTEMD_DIR)/cups.path; \
-		$(INSTALL_DATA) org.cups.cupsd.service $(BUILDROOT)$(SYSTEMD_DIR)/cups.service; \
-		$(INSTALL_DATA) org.cups.cupsd.socket $(BUILDROOT)$(SYSTEMD_DIR)/cups.socket; \
-		$(INSTALL_DATA) org.cups.cups-lpdAT.service $(BUILDROOT)$(SYSTEMD_DIR)/cups-lpd@.service; \
-		$(INSTALL_DATA) org.cups.cups-lpd.socket $(BUILDROOT)$(SYSTEMD_DIR)/cups-lpd.socket; \
+		$(INSTALL_DATA) cups.path $(BUILDROOT)$(SYSTEMD_DIR)/cups.path; \
+		$(INSTALL_DATA) cups.service $(BUILDROOT)$(SYSTEMD_DIR)/cups.service; \
+		$(INSTALL_DATA) cups.socket $(BUILDROOT)$(SYSTEMD_DIR)/cups.socket; \
+		$(INSTALL_DATA) cups-lpdAT.service $(BUILDROOT)$(SYSTEMD_DIR)/cups-lpd@.service; \
+		$(INSTALL_DATA) cups-lpd.socket $(BUILDROOT)$(SYSTEMD_DIR)/cups-lpd.socket; \
 	fi
 	if test "x$(XINETD)" != x; then \
 		echo Installing xinetd configuration file for cups-lpd...; \
