@@ -1,6 +1,7 @@
 #
 # Top-level Makefile for CUPS.
 #
+# Copyright © 2020 by Michael R Sweet
 # Copyright © 2007-2019 by Apple Inc.
 # Copyright © 1997-2007 by Easy Software Products, all rights reserved.
 #
@@ -239,6 +240,14 @@ compile-test:	all
 check test:	compile-test
 	./cups/googletests
 	./scheduler/googletests
+
+testserver:	all unittests
+	echo Running CUPS test server...
+	cd test; ./run-stp-tests.sh $(TESTOPTIONS)
+
+debugcheck debugtest:	all unittests
+	echo Running CUPS test suite with debug printfs...
+	cd test; ./run-stp-tests.sh 1 0 n y
 
 
 #
