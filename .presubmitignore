@@ -195,6 +195,7 @@ man/mantohtml.c
 monitor/bcp.c
 monitor/Makefile
 monitor/tbcp.c
+NOTICE
 notifier/dbus.c
 notifier/mailto.c
 notifier/Makefile
@@ -304,6 +305,7 @@ systemv/lpoptions.c
 systemv/lpstat.c
 systemv/Makefile
 templates/Makefile
+test/*
 tools/dither.h
 tools/ippevecommon.h
 tools/ippevepcl.c
