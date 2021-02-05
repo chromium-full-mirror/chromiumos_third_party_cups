@@ -6366,18 +6366,22 @@ ipp_free_values(ipp_attribute_t *attr,	/* I - Attribute to free values from */
 	  break;
 
       case IPP_TAG_STRING :
-      default :
 	  for (i = count, value = attr->values + element;
 	       i > 0;
 	       i --, value ++)
 	  {
-	    if (value->unknown.data)
+            // In cases where length is 0, it's possible that the data
+            // member has remained uninitialized.  Protect against trying
+            // to free uninitialized memory.
+	    if (value->unknown.length > 0 && value->unknown.data)
 	    {
 	      free(value->unknown.data);
 	      value->unknown.data = NULL;
 	    }
 	  }
 	  break;
+      default :
+          break;
     }
   }
 
