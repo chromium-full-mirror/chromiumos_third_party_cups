@@ -14,6 +14,7 @@
 
 #include "cups-private.h"
 #include "debug-internal.h"
+#include <assert.h>
 #include <regex.h>
 #include <stdint.h>
 #ifdef _WIN32
@@ -2899,7 +2900,8 @@ ippReadIOLimitedRecursion(
   unsigned char		*buffer,	/* Data buffer */
 			string[IPP_MAX_TEXT],
 					/* Small string buffer */
-			*bufptr;	/* Pointer into buffer */
+			*bufptr,	/* Pointer into buffer */
+			*bufend;	/* End of buffer */
   ipp_attribute_t	*attr;		/* Current attribute */
   ipp_tag_t		tag;		/* Current tag */
   ipp_tag_t		value_tag;	/* Current value tag */
@@ -3464,6 +3466,8 @@ ippReadIOLimitedRecursion(
 		}
 
                 bufptr = buffer;
+		assert(n == buffer_length);
+                bufend = buffer + n;
 
 	       /*
 	        * text-with-language and name-with-language are composite
@@ -3475,15 +3479,12 @@ ippReadIOLimitedRecursion(
 		*    text
 		*/
 
-
-		const unsigned char * const buffer_end_ptr = buffer + buffer_length;
-
 		n = (bufptr[0] << 8) | bufptr[1];
 
 		/* make sure that bufptr is large enough to contain:
 		 * language-length (2 bytes), language (n bytes) and text-length (2 bytes)
 		 */
-		if ((bufptr + 2 + n + 2) > buffer_end_ptr || n >= (int)sizeof(string))
+		if ((bufptr + 2 + n + 2) > bufend || n >= (int)sizeof(string))
 		{
 		  _cupsSetError(IPP_STATUS_ERROR_INTERNAL,
 		                _("IPP language length overflows value."), 1);
@@ -3513,7 +3514,7 @@ ippReadIOLimitedRecursion(
 		 */
 		n = (bufptr[0] << 8) | bufptr[1];
 
-		if ((bufptr + 2 + n) > buffer_end_ptr)
+		if ((bufptr + 2 + n) > bufend)
 		{
 		  _cupsSetError(IPP_STATUS_ERROR_INTERNAL,
 		                _("IPP string length overflows value."), 1);
