@@ -3939,6 +3939,8 @@ http_create(
     int               blocking,		/* I - 1 for blocking mode */
     _http_mode_t      mode)		/* I - _HTTP_MODE_CLIENT or _SERVER */
 {
+  EC_FUNC
+
   http_t	*http;			/* New HTTP connection */
   char		service[255];		/* Service name */
   http_addrlist_t *myaddrlist = NULL;	/* My address list */
@@ -3947,7 +3949,7 @@ http_create(
   DEBUG_printf(("4http_create(host=\"%s\", port=%d, addrlist=%p, family=%d, encryption=%d, blocking=%d, mode=%d)", host, port, (void *)addrlist, family, encryption, blocking, mode));
 
   if (!host && mode == _HTTP_MODE_CLIENT)
-    return (NULL);
+    RETURN_FAIL_UNKNOWN(NULL);
 
   httpInitialize();
 
@@ -3966,8 +3968,9 @@ http_create(
     myaddrlist = httpAddrGetList(host, family, service);
   }
 
-  if (!myaddrlist)
-    return (NULL);
+  if (!myaddrlist) {
+    RETURN_FAIL_DESTINATION_UNREACHABLE(NULL);
+  }
 
  /*
   * Allocate memory for the structure...
@@ -3977,7 +3980,7 @@ http_create(
   {
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
     httpAddrFreeList(myaddrlist);
-    return (NULL);
+    RETURN_FAIL_UNKNOWN(NULL);
   }
 
  /*
@@ -4010,7 +4013,7 @@ http_create(
   * Return the new structure...
   */
 
-  return (http);
+  RETURN_OK(http);
 }
 
 
