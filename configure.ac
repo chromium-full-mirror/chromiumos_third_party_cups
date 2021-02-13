@@ -1,8 +1,8 @@
 dnl
 dnl Configuration script for CUPS.
 dnl
-dnl Copyright © 2020 by Michael R Sweet
-dnl Copyright © 2007-2019 by Apple Inc.
+dnl Copyright © 2020-2021 by Michael R Sweet
+dnl Copyright © 2007-2020 by Apple Inc.
 dnl Copyright © 1997-2007 by Easy Software Products, all rights reserved.
 dnl
 dnl Licensed under Apache License v2.0.  See the file "LICENSE" for more
