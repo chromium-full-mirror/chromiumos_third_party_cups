@@ -1243,8 +1243,8 @@ get_printer_ppd(
       return LPAS_UNKNOWN_ERROR;
     }
 
-    // Wait a maximum of 3 seconds for the socket to be created.
-    if (wait_for_socket(host, 3) < 0)
+    // Wait a maximum of 6 seconds for the socket to be created.
+    if (wait_for_socket(host, 6) < 0)
       return status_from_last_error_code();
   }
 
