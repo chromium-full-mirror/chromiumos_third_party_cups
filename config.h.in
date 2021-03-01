@@ -668,6 +668,20 @@
 
 #undef HAVE_LOCALIZATION
 
+
+/*
+ * Do we want Snap packaging support and have the needed libraries and
+ * utilities?
+ */
+
+#undef HAVE_APPARMOR
+#undef HAVE_SNAPDGLIB
+#undef HAVE_SNAPCTL_IS_CONNECTED
+#undef SNAPCTL
+#undef CUPS_CONTROL_SLOT
+#undef BUILD_SNAP
+
+
 /*
  * Location of macOS localization bundle, if any.
  */
