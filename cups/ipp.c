@@ -399,6 +399,9 @@ ippAddInteger(ipp_t      *ipp,		/* I - IPP message */
   * Range check input...
   */
 
+  if (value_tag != IPP_TAG_ENUM && value_tag != IPP_TAG_INTEGER)
+    return (NULL);
+
 #if 0
   if (!ipp || !name || group < IPP_TAG_ZERO ||
       group == IPP_TAG_END || group >= IPP_TAG_UNSUPPORTED_VALUE ||
