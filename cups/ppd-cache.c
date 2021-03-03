@@ -3437,12 +3437,11 @@ _ppdCreateFromIPP2(
     if (is_pdf)
     {
      /*
-      * Don't locally filter PDF content when printing to a CUPS shared
-      * printer, otherwise the options will be applied twice...
+      * Locally filter PDF content when printing to a CUPS shared printer.
       */
 
       if (ippContainsString(attr, "application/vnd.cups-pdf"))
-        cupsFilePuts(fp, "*cupsFilter2: \"application/pdf application/pdf 0 -\"\n");
+        cupsFilePuts(fp, "*cupsFilter2: \"application/vnd.cups-pdf application/vnd.cups-pdf 0 -\"\n");
       else
         cupsFilePuts(fp, "*cupsFilter2: \"application/vnd.cups-pdf application/pdf 10 -\"\n");
     }
