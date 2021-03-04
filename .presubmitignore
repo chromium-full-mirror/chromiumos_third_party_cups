@@ -288,11 +288,7 @@ scheduler/testsub.c
 scheduler/type.c
 scheduler/util.c
 scheduler/util.h
-scripts/checkglobals
-scripts/listpublic
-scripts/makecups
-scripts/makerpm
-scripts/makesrcdist
+scripts/*
 systemv/cancel.c
 systemv/cupsaccept.c
 systemv/cupsctl.c
