@@ -22,6 +22,9 @@ constexpr int kNameMax = 100;
 // Pool of names.
 std::vector<std::vector<char>> names;
 
+// Pool of sequences.
+std::vector<std::vector<unsigned char>> sequences;
+
 ipp_tag_t GenerateTag(FuzzedDataProvider& data_provider) {
   return (ipp_tag_t)data_provider.ConsumeIntegralInRange<int>(
       IPP_TAG_CUPS_INVALID, IPP_TAG_EXTENSION);
@@ -33,6 +36,12 @@ const char* GenerateName(FuzzedDataProvider& data_provider) {
       data_provider.ConsumeBytesWithTerminator<char>(name_len);
   names.push_back(std::move(name));
   return names.back().data();
+}
+
+const unsigned char* GenerateSequence(FuzzedDataProvider& dprov, int length) {
+  std::vector<unsigned char> seq = dprov.ConsumeBytes<unsigned char>(length);
+  sequences.push_back(std::move(seq));
+  return sequences.back().data();
 }
 
 // Fuzzes CUPS ipp_t creation and teardown.
@@ -58,8 +67,7 @@ void CupsIppTFuzz(const uint8_t* data, size_t size) {
       case 2: {
         ipp_tag_t group = GenerateTag(data_provider);
         const char* name = GenerateName(data_provider);
-        const ipp_uchar_t* value =
-            (const ipp_uchar_t*)GenerateName(data_provider);
+        const ipp_uchar_t* value = GenerateSequence(data_provider, 11);
         ippAddDate(message, group, name, value);
         break;
       }
