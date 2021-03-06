@@ -649,6 +649,8 @@ testlang:	testlang.o $(LIBCUPSSTATIC)
 		$(LN) ../../$$po locale/$$lang; \
 	done
 	echo Running language API tests...
+	echo ls -al locale
+	ls -al locale
 	LOCALEDIR=locale ./testlang
 
 
