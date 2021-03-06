@@ -3063,6 +3063,17 @@ _ppdCacheWriteFile(
   return (!rename(newfile, filename));
 }
 
+/*
+ * '_ppdName()' - Get a PPD name from pwg_media_t struct; if the field ppd is
+ *                set to NULL, it returns the value of pwg field.
+ */
+
+const char * _ppdName(const pwg_media_t *pwg)
+{
+  if (pwg->ppd)
+    return pwg->ppd;
+  return pwg->pwg;
+}
 
 /*
  * '_ppdCreateFromIPP()' - Create a PPD file describing the capabilities
@@ -3363,7 +3374,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
       y_dim      = ippFindAttribute(media_size, "y-dimension", IPP_TAG_INTEGER);
 
       if (x_dim && y_dim && (pwg = pwgMediaForSize(ippGetInteger(x_dim, 0), ippGetInteger(y_dim, 0))) != NULL)
-	strlcpy(ppdname, pwg->ppd, sizeof(ppdname));
+	strlcpy(ppdname, _ppdName(pwg), sizeof(ppdname));
       else
 	strlcpy(ppdname, "Unknown", sizeof(ppdname));
     }
@@ -3371,7 +3382,7 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
       strlcpy(ppdname, "Unknown", sizeof(ppdname));
   }
   else if ((pwg = pwgMediaForPWG(ippGetString(ippFindAttribute(response, "media-default", IPP_TAG_ZERO), 0, NULL))) != NULL)
-    strlcpy(ppdname, pwg->ppd, sizeof(ppdname));
+    strlcpy(ppdname, _ppdName(pwg), sizeof(ppdname));
   else
     strlcpy(ppdname, "Unknown", sizeof(ppdname));
 
@@ -3416,9 +3427,9 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 	  temp.top = top;
 
 	if (temp.bottom == 0 && temp.left == 0 && temp.right == 0 && temp.top == 0)
-	  snprintf(temp.media, sizeof(temp.media), "%s.Borderless", pwg->ppd);
+	  snprintf(temp.media, sizeof(temp.media), "%s.Borderless", _ppdName(pwg));
 	else
-	  strlcpy(temp.media, pwg->ppd, sizeof(temp.media));
+	  strlcpy(temp.media, _ppdName(pwg), sizeof(temp.media));
 
 	if (!cupsArrayFind(sizes, &temp))
 	  cupsArrayAdd(sizes, &temp);
@@ -3517,9 +3528,9 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 	temp.top    = top;
 
 	if (temp.bottom == 0 && temp.left == 0 && temp.right == 0 && temp.top == 0)
-	  snprintf(temp.media, sizeof(temp.media), "%s.Borderless", pwg->ppd);
+	  snprintf(temp.media, sizeof(temp.media), "%s.Borderless", _ppdName(pwg));
 	else
-	  strlcpy(temp.media, pwg->ppd, sizeof(temp.media));
+	  strlcpy(temp.media, _ppdName(pwg), sizeof(temp.media));
 
 	if (!cupsArrayFind(sizes, &temp))
 	  cupsArrayAdd(sizes, &temp);
@@ -3588,9 +3599,9 @@ _ppdCreateFromIPP(char   *buffer,	/* I - Filename buffer */
 	  temp.top    = top;
 
 	  if (temp.bottom == 0 && temp.left == 0 && temp.right == 0 && temp.top == 0)
-	    snprintf(temp.media, sizeof(temp.media), "%s.Borderless", pwg->ppd);
+	    snprintf(temp.media, sizeof(temp.media), "%s.Borderless", _ppdName(pwg));
 	  else
-	    strlcpy(temp.media, pwg->ppd, sizeof(temp.media));
+	    strlcpy(temp.media, _ppdName(pwg), sizeof(temp.media));
 
 	  if (!cupsArrayFind(sizes, &temp))
 	    cupsArrayAdd(sizes, &temp);
