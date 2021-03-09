@@ -40,6 +40,7 @@ const char* GenerateName(FuzzedDataProvider& data_provider) {
 
 const unsigned char* GenerateSequence(FuzzedDataProvider& dprov, int length) {
   std::vector<unsigned char> seq = dprov.ConsumeBytes<unsigned char>(length);
+  seq.resize(length, '\0');
   sequences.push_back(std::move(seq));
   return sequences.back().data();
 }
