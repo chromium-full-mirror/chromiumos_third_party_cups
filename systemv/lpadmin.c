@@ -1352,7 +1352,8 @@ get_printer_ppd(
   }
   if (cupsLastError() >= IPP_STATUS_REDIRECTION_OTHER_SITE)
   {
-    _cupsLangPrintf(stderr, _("%s: Unable to query printer: %s"), "lpadmin", cupsLastErrorString());
+    _cupsLangPrintf(stderr, _("%s: Unable to query printer(%d): %s"), "lpadmin",
+	 cupsLastError(), cupsLastErrorString());
     buffer[0] = '\0';
   }
   if (response == NULL) {
