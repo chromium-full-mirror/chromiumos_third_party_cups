@@ -5322,7 +5322,7 @@ create_local_bg_thread(
   response = cupsDoRequest(http, request, resource);
   status   = cupsLastError();
 
-  cupsdLogMessage(CUPSD_LOG_DEBUG, "%s: Get-Printer-Attributes returned %s (%s)", printer->name, ippErrorString(cupsLastError()), cupsLastErrorString());
+  cupsdLogMessage(CUPSD_LOG_DEBUG, "%s: Get-Printer-Attributes returned %d: %s (%s)", printer->name, cupsLastError(), ippErrorString(cupsLastError()), cupsLastErrorString());
 
   if (status == IPP_STATUS_ERROR_BAD_REQUEST || status == IPP_STATUS_ERROR_VERSION_NOT_SUPPORTED)
   {
