@@ -535,7 +535,8 @@ ippAddOctetString(ipp_t      *ipp,	/* I - IPP message */
 
   attr->values[0].unknown.length = datalen;
 
-  if (data)
+  // Don't allocate memory if there's no memory to store.
+  if (datalen > 0 && data)
   {
     if ((attr->values[0].unknown.data = malloc((size_t)datalen)) == NULL)
     {
