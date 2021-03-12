@@ -658,20 +658,28 @@ main(int  argc,				/* I - Number of command-line args */
 
   fprintf(stderr, "DEBUG: Looking up \"%s\"...\n", hostname);
 
-  // If the scheme is ippusb then we replace the hostname with a socket
-  // in /run/ippusb.
+  // If the scheme is ippusb then a query is sent to the ippusb_manager service
+  // to check if the printer is currently connected and get the name of the
+  // socket used for communication with the printer.
   if (!strcmp(scheme, "ippusb")) {
-    char* socket = ippusb_host_to_socket_name(hostname);
-    if (socket == NULL)
+    int sock = open_ippusb_manager_socket();
+    if (sock < 0)
       _exit(1);
 
-    int ret = snprintf(hostname, sizeof(hostname), "/run/ippusb/%s", socket);
+    char* response = query_ippusb_manager(sock, hostname);
+
+    close(sock);
+
+    if (response == NULL)
+      _exit(1);
+
+    int ret = snprintf(hostname, sizeof(hostname), "/run/ippusb/%s", response);
     if (ret < 0 || ret >= sizeof(hostname)) {
       fprintf(stderr, "ERROR: Failed to overwrite hostname");
       _exit(1);
     }
 
-    free(socket);
+    free(response);
 
     // Change the scheme back to ipp so that communications will be understood
     // by the printer.

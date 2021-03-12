@@ -1227,21 +1227,28 @@ get_printer_ppd(
     return LPAS_UNKNOWN_ERROR;
   }
 
-  // If the scheme is ippusb then the host is replaced with a dedicated socket
-  // in /run/ippusb.  We wait briefly to make sure the socket is available
-  // before connecting.
+  // If the scheme is ippusb then a query is sent to the ippusb_manager service
+  // to check if the printer is currently connected and get the name of the
+  // socket used for communication with the printer.
   if (!strcmp(scheme, "ippusb")) {
-    char* socket = ippusb_host_to_socket_name(host);
-    if (socket == NULL)
+    int sock = open_ippusb_manager_socket();
+    if (sock < 0)
       return status_from_last_error_code();
-    _cupsLangPrintf(stderr, _("lpadmin: received socket name \"%s\""), socket);
 
-    int ret = snprintf(host, sizeof(host), "/run/ippusb/%s", socket);
-    free(socket);
+    char* response = query_ippusb_manager(sock, host);
+    if (response == NULL)
+      return status_from_last_error_code();
+    _cupsLangPrintf(stderr, _("lpadmin: received response \"%s\""), response);
+
+    close(sock);
+
+    int ret = snprintf(host, sizeof(host), "/run/ippusb/%s", response);
     if (ret < 0 || ret >= sizeof(host)) {
       _cupsLangPrintf(stderr, _("lpadmin: Failed to overwrite host"));
       return LPAS_UNKNOWN_ERROR;
     }
+
+    free(response);
 
     // Wait a maximum of 6 seconds for the socket to be created.
     if (wait_for_socket(host, 6) < 0)

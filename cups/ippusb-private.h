@@ -18,9 +18,25 @@
 // NULL byte.
 #define MAX_IPPUSB_URI 29
 
-// Returns the base socket name expected for |host|.  The caller is responsible
-// for freeing the returned string.
-char* ippusb_host_to_socket_name(const char* host);
+// Attempts to open the socket used to communicate with ippusb_manager, and if
+// successful returns a file descriptor of the socket. Returns -1 on failure.
+int open_ippusb_manager_socket(void);
+
+// Sends the provided message through the stream socket referred to by |fd|.
+// Returns -1 on failure, 0 otherwise.
+int send_message(int fd, const char* msg);
+
+// Attempts to receive a message from the stream socket referred to by |fd|.
+// Returns NULL on failure.
+char* get_message(int fd);
+
+// Sends a query message to the ippusb_manager through the socket |fd|, and
+// returns the response from ippusb_manager. Returns NULL on failure.
+char* query_ippusb_manager(int fd, const char* msg);
+
+// Verifies that the response string is not null and does not contain any
+// invalid characters. Returns -1 on failure, 0 otherwise.
+int valid_response(const char* response);
 
 // Writes the contents of |uri| to |fixed_uri| but replacing the "scheme"
 // portion with |scheme|. The given value |n| represents the maximum number of
@@ -28,8 +44,8 @@ char* ippusb_host_to_socket_name(const char* host);
 int change_scheme(const char* uri, const char* scheme, size_t n,
                   char* fixed_uri);
 
-// Waits for a maximum time of |timeout| seconds until the socket at |filename|
-// is ready to accept connections. Returns -1 on failure, 0 otherwise.
+// Waits for a maximum time of |timeout| until the socket at |filename| is ready
+// to accept connections. Returns -1 on failure, 0 otherwise.
 int wait_for_socket(const char* filename, long timeout);
 
 #endif /* _CUPS_IPPUSB_H_ */
