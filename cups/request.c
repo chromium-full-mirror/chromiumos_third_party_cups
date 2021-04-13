@@ -106,6 +106,7 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
   struct stat	fileinfo;		/* File information */
   ssize_t	bytes;			/* Number of bytes read/written */
   char		buffer[32768];		/* Output buffer */
+  int		parsing_error = 0;
 
   EC_FUNC;
 
@@ -233,6 +234,13 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
     {
       response = cupsGetResponse(http, resource);
       status   = httpGetStatus(http);
+      if (response == NULL && status == HTTP_STATUS_ERROR)
+      {
+        // Generally, IPP parsing has failed if we're here.  In this
+        // case, ippReadIO set the error.
+        parsing_error = 1;
+        break;
+      }
     }
 
     DEBUG_printf(("2cupsDoIORequest: status=%d", status));
@@ -278,8 +286,12 @@ cupsDoIORequest(http_t     *http,	/* I - Connection to server or @code CUPS_HTTP
 
   ippDelete(request);
 
+  if (parsing_error)
+    RETURN_FAIL_UNEXPECTED_RESPONSE(NULL);
+
   if (response == NULL)
     RETURN_FAIL(NULL);
+
   RETURN_OK(response);
 }
 
