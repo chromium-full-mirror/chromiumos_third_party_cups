@@ -379,10 +379,9 @@ googletests:	CXXFLAGS += $(PC_CFLAGS)
 googletests:	ALL_CXXFLAGS += -Wno-error
 googletests:	$(GTEST_FILES)
 	echo Linking $@...
-	$(LD_CXX) $(LDFLAGS) -o googletests $(GTEST_FILES) $(PC_LIBS) \
-		$(SSLLIBS) $(LIBSLP) $(LIBLDAP) $(PAMLIBS) $(COMMONLIBS) \
-		$(LIBZ) $(LIBPAPER) $(LIBMALLOC) $(SERVERLIBS) \
-		$(ONDEMANDLIBS) $(DNSSDLIBS) $(LIBGSSAPI) $(LIBWRAP)
+	$(LD_CXX) $(LDFLAGS) -o googletests $(GTEST_FILES) $(PC_LIBS) $(LIBS) \
+		$(PAMLIBS) $(LIBPAPER) $(LIBMALLOC) $(SERVERLIBS) $(ONDEMANDLIBS) \
+		$(LIBWRAP) $(APPARMORLIBS) $(SNAPDGLIBLIBS)
 
 
 #
