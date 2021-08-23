@@ -890,7 +890,18 @@ _ppdOpen(
       if (ppd->num_profiles == 0)
         profile = malloc(sizeof(ppd_profile_t));
       else
-        profile = realloc(ppd->profiles, sizeof(ppd_profile_t) * (size_t)(ppd->num_profiles + 1));
+      {
+        /* The buffer is reallocated if and only if its size is a power of 2.
+         * The reallocation always doubles the buffer size.
+         * The explanation of the condition used in the "if" statement below may be found here:
+         * https://stackoverflow.com/questions/1053582/how-does-this-bitwise-operation-check-for-a-power-of-2
+         */
+        const unsigned num_profiles = ppd->num_profiles;
+        if ((num_profiles & (num_profiles-1u)) == 0u)
+          profile = realloc(ppd->profiles, sizeof(ppd_profile_t) * (size_t)(num_profiles << 1u));
+        else
+          profile = ppd->profiles;
+      }
 
       if (!profile)
       {
