@@ -2272,6 +2272,43 @@ _ppdCacheGetFinishingValues(
   return (num_values);
 }
 
+static int _matchMediaSource(ipp_t *job, const char **match) {
+  if (!job)
+    return 0;
+
+  /*
+   * Lookup a naked media-source attribute.
+   */
+
+  ipp_attribute_t *media_source = ippFindAttribute(job, "media-source", IPP_TAG_KEYWORD);
+  if (media_source)
+  {
+    *match = ippGetString(media_source, 0, NULL);
+    return 1;
+  }
+
+  return 0;
+}
+
+static int _matchMediaCol(ipp_t *job, const char **match) {
+   /*
+    * Lookup the media-col attribute and any media-source found there...
+    */
+
+    ipp_attribute_t	*media_col;	/* media-col attribute */
+
+    media_col = ippFindAttribute(job, "media-col", IPP_TAG_BEGIN_COLLECTION);
+    if (media_col)
+    {
+     /*
+      * Use the media-source value from media-col...
+      */
+
+      return _matchMediaSource(ippGetCollection(media_col, 0), match);
+    }
+
+    return 0;
+}
 
 /*
  * '_ppdCacheGetInputSlot()' - Get the PPD InputSlot associated with the job
@@ -2293,26 +2330,13 @@ _ppdCacheGetInputSlot(
 
   if (job && !keyword)
   {
-   /*
-    * Lookup the media-col attribute and any media-source found there...
-    */
-
-    ipp_attribute_t	*media_col,	/* media-col attribute */
-			*media_source;	/* media-source attribute */
     pwg_size_t		size;		/* Dimensional size */
     int			margins_set;	/* Were the margins set? */
+    const char* match = NULL;
 
-    media_col = ippFindAttribute(job, "media-col", IPP_TAG_BEGIN_COLLECTION);
-    if (media_col &&
-        (media_source = ippFindAttribute(ippGetCollection(media_col, 0),
-                                         "media-source",
-	                                 IPP_TAG_KEYWORD)) != NULL)
+    if (_matchMediaCol(job, &match) || _matchMediaSource(job, &match))
     {
-     /*
-      * Use the media-source value from media-col...
-      */
-
-      keyword = ippGetString(media_source, 0, NULL);
+      keyword = match;
     }
     else if (pwgInitSize(&size, job, &margins_set))
     {
