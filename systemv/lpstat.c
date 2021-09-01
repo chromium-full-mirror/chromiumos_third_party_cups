@@ -1828,9 +1828,6 @@ show_printers(const char  *printers,	/* I - Destinations */
 	}
         if (long_status > 1)
 	{
-	  _cupsLangPrintf(stdout, _("\tLocation: %s"),
-	                  location ? location : "");
-
 	  if (ptype & CUPS_PRINTER_REMOTE)
 	  {
 	    _cupsLangPuts(stdout, _("\tConnection: remote"));
