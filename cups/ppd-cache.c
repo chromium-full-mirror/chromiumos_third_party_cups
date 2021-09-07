@@ -61,6 +61,10 @@ static int      pwg_fill_size_trackers(const ppd_file_t *ppd,
 static int      pwg_find_size_tracker(const char *media_name,
                                       const struct pwg_media_size_tracker_s *trackers,
                                       int trackers_length);
+static void     cros_ppd_write_jog_offset_options(ipp_attribute_t *attr,
+                                                  cups_array_t *names,
+                                                  cups_array_t *fin_options,
+                                                  cups_file_t *fp);
 static char *   _ppdGetAttributeValue(ipp_attribute_t *attr);
 static char *   _ppdTransformValue(ipp_t *collection, char *value_buf);
 
@@ -4797,6 +4801,11 @@ _ppdCreateFromIPP2(
     }
 
    /*
+    * Jog
+    */
+    cros_ppd_write_jog_offset_options(attr, names, fin_options, fp);
+
+   /*
     * CutMedia
     */
 
@@ -6030,4 +6039,44 @@ pwg_find_size_tracker(
   }
 
   return -1;
+}
+
+/*
+ * 'cros_ppd_write_jog_offset_options()' - given the
+ *    `finishings-supported` attribute, write the appropriate `Jog`
+ *    options into the PPD `fp`.
+ */
+static void
+cros_ppd_write_jog_offset_options(
+    ipp_attribute_t *attr,      /* I - `finishings-supported` attribute */
+    cups_array_t *names,        /* I - processed IPP finishings */
+    cups_array_t *fin_options,  /* I - PPD finishing options */
+    cups_file_t *fp)            /* I - PPD output file pointer */
+{
+  if (!ippContainsInteger(attr, IPP_FINISHINGS_JOG_OFFSET)) {
+    return;
+  }
+
+  cupsArrayAdd(fin_options, "*Jog");
+  cupsArrayAdd(names, "jog-offset");
+
+  // The standard PPD options are only emitted for consistency with
+  // other finishings. PPD parsing relies only on the
+  // `*cupsIPPFinishings` anyway, which doesn't give us an obvious way
+  // to stuff a `PickOne` corresponding to the IPP enum variant.
+  cupsFilePuts(fp, "*OpenUI *Jog: PickOne\n");
+  cupsFilePuts(fp, "*OrderDependency: 10 AnySetup *Jog\n");
+  cupsFilePuts(fp, "*DefaultJog: None\n");
+  cupsFilePuts(fp, "*Jog None: \"\"\n");
+
+  // Emit the (arbitrarily chosen) `*Jog` option, ignoring
+  // `DeviceDeactivation` and `EndOfJob`.
+  cupsFilePrintf(fp, "*Jog %s: \"\"\n", "EndOfSet");
+
+  // Emit the `cupsIPPFinishings` supplement. This is what the PPD
+  // parsing code prefers to consume (over the standard PPD options).
+  cupsFilePrintf(fp, "*cupsIPPFinishings %d/%s: \"finishings=%d\"",
+                 IPP_FINISHINGS_JOG_OFFSET, "jog-offset",
+                 IPP_FINISHINGS_JOG_OFFSET);
+  cupsFilePrintf(fp, "%s\n", "*CloseUI: *Jog");
 }
