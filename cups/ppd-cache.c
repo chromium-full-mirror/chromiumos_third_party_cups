@@ -14,6 +14,7 @@
 
 #include "cups-private.h"
 #include "error-codes.h"
+#include "ppd-cache-private.h"
 #include "ppd-private.h"
 #include "debug-internal.h"
 #include <math.h>
@@ -52,8 +53,6 @@ static cups_size_t *pwg_copy_size(cups_size_t *size);
 static void	pwg_free_finishings(_pwg_finishings_t *f);
 static void	pwg_ppdize_name(const char *ipp, char *name, size_t namesize);
 static void	pwg_ppdize_resolution(ipp_attribute_t *attr, int element, int *xres, int *yres, char *name, size_t namesize);
-static void	pwg_unppdize_name(const char *ppd, char *name, size_t namesize,
-		                  const char *dashchars, int exempt_x_dot);
 static void     pwg_destroy_size_trackers(struct pwg_media_size_tracker_s *trackers,
                                        int trackers_length);
 static int      pwg_fill_size_trackers(const ppd_file_t *ppd,
@@ -5869,102 +5868,6 @@ pwg_ppdize_resolution(
     else
       snprintf(name, namesize, "%dx%ddpi", *xres, *yres);
   }
-}
-
-
-/*
- * 'pwg_unppdize_name()' - Convert a PPD keyword to a lowercase IPP keyword.
- */
-
-static void
-pwg_unppdize_name(const char *ppd,	/* I - PPD keyword */
-		  char       *name,	/* I - Name buffer */
-                  size_t     namesize,	/* I - Size of name buffer */
-                  const char *dashchars,/* I - Characters to be replaced by dashes */
-                  const int exempt_x_dot)
-                                        /* I - whether to dash-separate [x.][0-9] */
-{
-  char	*ptr,				/* Pointer into name buffer */
-	*end;				/* End of name buffer */
-  int   nodash = 1;                     /* Next char in IPP name cannot be a
-                                           dash (first char or after a dash) */
-
-
-  if (_cups_islower(*ppd))
-  {
-   /*
-    * Already lowercase name, use as-is?
-    */
-
-    const char *ppdptr;			/* Pointer into PPD keyword */
-
-    for (ppdptr = ppd + 1; *ppdptr; ppdptr ++)
-      if (_cups_isupper(*ppdptr) || strchr(dashchars, *ppdptr) ||
-	  (*ppdptr == '-' && *(ppdptr - 1) == '-') ||
-	  (*ppdptr == '-' && *(ppdptr + 1) == '\0'))
-        break;
-
-    if (!*ppdptr)
-    {
-      strlcpy(name, ppd, namesize);
-      return;
-    }
-  }
-
-  for (ptr = name, end = name + namesize - 1; *ppd && ptr < end; ppd ++)
-  {
-    if (_cups_isalnum(*ppd))
-    {
-      *ptr++ = (char)tolower(*ppd & 255);
-      nodash = 0;
-    }
-    else if (*ppd == '-' || strchr(dashchars, *ppd))
-    {
-      if (nodash == 0)
-      {
-	*ptr++ = '-';
-	nodash = 1;
-      }
-    }
-    else
-    {
-      *ptr++ = *ppd;
-      nodash = 0;
-    }
-
-    /*
-     * We might be looking at the end of our allotted rope. Break out
-     * early and lay down the NUL byte if we are.
-     */
-    if (ptr == end)
-    {
-      break;
-    }
-
-    if (nodash == 0)
-    {
-      if (!_cups_isupper(*ppd) && _cups_isalnum(*ppd) &&
-	  _cups_isupper(ppd[1]))
-      {
-	*ptr++ = '-';
-	nodash = 1;
-      }
-      else if (!isdigit(*ppd & 255) && isdigit(ppd[1] & 255))
-      {
-	if (!exempt_x_dot && (*ppd == 'x' || *ppd == '.'))
-	{
-	  *ptr++ = '-';
-	  nodash = 1;
-	}
-      }
-    }
-  }
-
-  /* Remove trailing dashes */
-  while (ptr > name && *(ptr - 1) == '-')
-    ptr --;
-
-  *ptr = '\0';
 }
 
 /*
