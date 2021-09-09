@@ -70,6 +70,7 @@ DRIVEROBJS	=	\
 		ppd.o \
 		ppd-attr.o \
 		ppd-cache.o \
+		ppd-cache-private.o \
 		ppd-conflicts.o \
 		ppd-custom.o \
 		ppd-emit.o \
@@ -115,6 +116,7 @@ TESTOBJS	= \
 
 GTEST_OBJS	= \
 		error-codes_unittest.o \
+		ppd-cache-private_unittest.o \
 		googletests.o
 
 OBJS	=	\
@@ -488,7 +490,7 @@ rasterbench:	rasterbench.o $(LIBCUPSSTATIC)
 # Make the google unit tests, "googletests"
 #
 
-googletests:	$(GTEST_OBJS) error-codes.o
+googletests:	$(GTEST_OBJS) error-codes.o ppd-cache-private.o
 	echo Linking $@...
 	$(LD_CXX) $(LDFLAGS) -o $@ $^ $(shell $(PKG_CONFIG) --libs gtest)
 
