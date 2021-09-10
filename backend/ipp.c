@@ -2277,18 +2277,23 @@ main(int  argc,				/* I - Number of command-line args */
   // job_canceled can be -1 which should not be treated as CUPS_BACKEND_OK
   if (job_canceled > 0)
     return (CUPS_BACKEND_OK);
-  else if (ipp_status == IPP_STATUS_ERROR_NOT_AUTHORIZED || ipp_status == IPP_STATUS_ERROR_FORBIDDEN || ipp_status == IPP_STATUS_ERROR_CUPS_AUTHENTICATION_CANCELED)
+
+  if (ipp_status == IPP_STATUS_ERROR_NOT_AUTHORIZED || ipp_status == IPP_STATUS_ERROR_FORBIDDEN || ipp_status == IPP_STATUS_ERROR_CUPS_AUTHENTICATION_CANCELED)
     return (CUPS_BACKEND_AUTH_REQUIRED);
-  else if (ipp_status == IPP_STATUS_ERROR_CUPS_ACCOUNT_LIMIT_REACHED ||
+
+  if (ipp_status == IPP_STATUS_ERROR_CUPS_ACCOUNT_LIMIT_REACHED ||
 	   ipp_status == IPP_STATUS_ERROR_CUPS_ACCOUNT_INFO_NEEDED ||
 	   ipp_status == IPP_STATUS_ERROR_CUPS_ACCOUNT_CLOSED ||
 	   ipp_status == IPP_STATUS_ERROR_CUPS_ACCOUNT_AUTHORIZATION_FAILED)
     return (CUPS_BACKEND_HOLD);
-  else if (ipp_status == IPP_STATUS_ERROR_INTERNAL)
+
+  if (ipp_status == IPP_STATUS_ERROR_INTERNAL)
     return (CUPS_BACKEND_STOP);
-  else if (ipp_status == IPP_STATUS_ERROR_CONFLICTING || ipp_status == IPP_STATUS_ERROR_REQUEST_ENTITY || ipp_status == IPP_STATUS_ERROR_REQUEST_VALUE)
+
+  if (ipp_status == IPP_STATUS_ERROR_CONFLICTING || ipp_status == IPP_STATUS_ERROR_REQUEST_ENTITY || ipp_status == IPP_STATUS_ERROR_REQUEST_VALUE)
     return (CUPS_BACKEND_FAILED);
-  else if (ipp_status == IPP_STATUS_ERROR_REQUEST_VALUE ||
+
+  if (ipp_status == IPP_STATUS_ERROR_REQUEST_VALUE ||
 	   ipp_status == IPP_STATUS_ERROR_ATTRIBUTES_OR_VALUES ||
            ipp_status == IPP_STATUS_ERROR_DOCUMENT_FORMAT_NOT_SUPPORTED || job_canceled < 0)
   {
@@ -2305,10 +2310,13 @@ main(int  argc,				/* I - Number of command-line args */
 
     return (CUPS_BACKEND_CANCEL);
   }
-  else if (ipp_status > IPP_STATUS_OK_CONFLICTING && ipp_status != IPP_STATUS_ERROR_JOB_CANCELED)
+
+  if (ipp_status > IPP_STATUS_OK_CONFLICTING && ipp_status != IPP_STATUS_ERROR_JOB_CANCELED)
+  {
     return (CUPS_BACKEND_RETRY_CURRENT);
-  else
-    return (CUPS_BACKEND_OK);
+  }
+
+  return (CUPS_BACKEND_OK);
 }
 
 
