@@ -2313,6 +2313,7 @@ main(int  argc,				/* I - Number of command-line args */
 
   if (ipp_status > IPP_STATUS_OK_CONFLICTING && ipp_status != IPP_STATUS_ERROR_JOB_CANCELED)
   {
+    fprintf(stderr, "WARNING: Job will attempt retry (status: %d)", ipp_status);
     return (CUPS_BACKEND_RETRY_CURRENT);
   }
 
