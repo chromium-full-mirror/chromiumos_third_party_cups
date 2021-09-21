@@ -539,10 +539,8 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
 					/* PRINTER_LOCATION env variable */
 			printer_name[255],
 					/* PRINTER env variable */
-			*printer_state_reasons = NULL,
+			*printer_state_reasons = NULL;
 					/* PRINTER_STATE_REASONS env var */
-			rip_max_cache[255];
-					/* RIP_MAX_CACHE env variable */
 
 
   cupsdLogMessage(CUPSD_LOG_DEBUG2,
@@ -1046,7 +1044,8 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
   envp[envc ++] = apple_language;
 #endif /* __APPLE__ */
   envp[envc ++] = ppd;
-  envp[envc ++] = rip_max_cache;
+  // rip_max_cache was removed.  This index (20) must remain reserved.
+  envp[envc ++] = "";
   envp[envc ++] = content_type;
   envp[envc ++] = device_uri;
   envp[envc ++] = printer_info;
