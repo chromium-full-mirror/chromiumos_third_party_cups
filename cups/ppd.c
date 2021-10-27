@@ -96,6 +96,9 @@ static int		ppd_read(cups_file_t *fp, _ppd_line_t *line,
 				 _ppd_globals_t *pg);
 static int		ppd_update_filters(ppd_file_t *ppd,
 			                   _ppd_globals_t *pg);
+static void             ppd_overwrite_allocated_member(const char *src,
+                                                       char **dst);
+
 
 
 /*
@@ -826,7 +829,7 @@ _ppdOpen(
       * Say all PPD files are UTF-8, since we convert to UTF-8...
       */
 
-      ppd->lang_encoding = strdup("UTF-8");
+      ppd_overwrite_allocated_member("UTF-8", &ppd->lang_encoding);
       encoding           = _ppdGetEncoding(string);
     }
     else if (!strcmp(keyword, "LanguageVersion"))
@@ -847,10 +850,11 @@ _ppdOpen(
 
 
         cupsCharsetToUTF8(utf8, string, sizeof(utf8), encoding);
-	ppd->nickname = strdup((char *)utf8);
+
+        ppd_overwrite_allocated_member(utf8, &ppd->nickname);
       }
       else
-        ppd->nickname = strdup(string);
+        ppd_overwrite_allocated_member(string, &ppd->nickname);
     }
     else if (!strcmp(keyword, "Product"))
       ppd->product = string;
@@ -860,17 +864,17 @@ _ppdOpen(
       ppd->ttrasterizer = string;
     else if (!strcmp(keyword, "JCLBegin"))
     {
-      ppd->jcl_begin = strdup(string);
+      ppd_overwrite_allocated_member(string, &ppd->jcl_begin);
       ppd_decode(ppd->jcl_begin);	/* Decode quoted string */
     }
     else if (!strcmp(keyword, "JCLEnd"))
     {
-      ppd->jcl_end = strdup(string);
+      ppd_overwrite_allocated_member(string, &ppd->jcl_end);
       ppd_decode(ppd->jcl_end);		/* Decode quoted string */
     }
     else if (!strcmp(keyword, "JCLToPSInterpreter"))
     {
-      ppd->jcl_ps = strdup(string);
+      ppd_overwrite_allocated_member(string, &ppd->jcl_ps);
       ppd_decode(ppd->jcl_ps);		/* Decode quoted string */
     }
     else if (!strcmp(keyword, "AccurateScreensSupport"))
@@ -1147,7 +1151,7 @@ _ppdOpen(
 	strlcpy(choice->text, text[0] ? text : _("Custom"),
 		sizeof(choice->text));
 
-	choice->code = strdup(string);
+	ppd_overwrite_allocated_member(string, &choice->code);
 
 	if (custom_option->section == PPD_ORDER_JCL)
 	  ppd_decode(choice->code);
@@ -1395,7 +1399,7 @@ _ppdOpen(
 	strlcpy(choice->text,
 	        custom_attr->text[0] ? custom_attr->text : _("Custom"),
 		sizeof(choice->text));
-        choice->code = strdup(custom_attr->value);
+        ppd_overwrite_allocated_member(custom_attr->value, &choice->code);
       }
     }
     else if (!strcmp(keyword, "JCLOpenUI"))
@@ -1498,7 +1502,7 @@ _ppdOpen(
 	strlcpy(choice->text,
 	        custom_attr->text[0] ? custom_attr->text : _("Custom"),
 		sizeof(choice->text));
-        choice->code = strdup(custom_attr->value);
+        ppd_overwrite_allocated_member(custom_attr->value, &choice->code);
       }
     }
     else if (!strcmp(keyword, "CloseUI"))
@@ -3566,4 +3570,18 @@ ppd_update_filters(ppd_file_t     *ppd,	/* I - PPD file */
 
   DEBUG_puts("5ppd_update_filters: Completed OK.");
   return (1);
+}
+
+/*
+ * 'ppd_overwrite_allocated_member()' - overwrites `dst` with a copy
+ * of `src`, freeing the existing `dst` if necessary.
+ */
+static void
+ppd_overwrite_allocated_member(const char *src, /* I - string to duplicate */
+                               char **dst)      /* O - member to clobber */
+{
+  if (*dst) {
+    free(*dst);
+  }
+  *dst = strdup(src);
 }
