@@ -31,11 +31,23 @@ void stlMultisetDelete(stl_multiset_t*);
 /* Adds a given element to the container. */
 void stlMultisetAdd(stl_multiset_t, void* element);
 
-/* Finds and returns the first element in the container == the given key. */
-/* If there are no such elements it returns NULL and sets the internal
+/* Gets the number of elements in the container. */
+int stlMultisetCount(stl_multiset_t);
+
+/* Finds and returns the first element in the container == the given key.
+ * If there are no such elements it returns NULL and sets the internal
  * iterator to END. Otherwise, it sets the internal iterator to the first
  * element == the given key and returns this element. */
 void* stlMultisetFind(stl_multiset_t, void* key);
+
+/* Works similar as stlMultisetFind(...) but removes the returned element
+ * from the container. If the element was found (and removed) the internal
+ * iterator is set to the element following the removed one. */
+void* stlMultisetRemove(stl_multiset_t, void* key);
+
+/* Set the internal iterator to the first element and returns it.
+ * Returns NULL if the internal iterator == END (the container is empty). */
+void* stlMultisetFirst(stl_multiset_t);
 
 /* Increase the internal iterator by one and return new current element.
  * It does nothing if the internal iterator == END.

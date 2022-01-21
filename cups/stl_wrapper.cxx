@@ -43,6 +43,13 @@ void stlMultisetAdd(stl_multiset_t c, void* element)
   cc->current = cc->data.insert(element);
 }
 
+int stlMultisetCount(stl_multiset_t c) {
+  if (c.ptr == NULL)
+    return 0;
+  stl_multiset *cc = reinterpret_cast<stl_multiset*>(c.ptr);
+  return cc->data.size();
+}
+
 void* stlMultisetFind(stl_multiset_t c, void* key)
 {
   if (c.ptr == NULL)
@@ -54,6 +61,34 @@ void* stlMultisetFind(stl_multiset_t c, void* key)
     return NULL;
   }
   cc->current = iters.first;
+  return *(cc->current);
+}
+
+void* stlMultisetRemove(stl_multiset_t c, void* key)
+{
+  if (c.ptr == NULL)
+    return NULL;
+  stl_multiset *cc = reinterpret_cast<stl_multiset*>(c.ptr);
+  auto iters = cc->data.equal_range(key);
+  if (iters.first == iters.second) {
+    cc->current = cc->data.end();
+    return NULL;
+  }
+  cc->current = iters.first;
+  ++(cc->current);
+  auto elem = *(iters.first);
+  cc->data.erase(iters.first);
+  return elem;
+}
+
+void* stlMultisetFirst(stl_multiset_t c)
+{
+  if (c.ptr == NULL)
+    return NULL;
+  stl_multiset *cc = reinterpret_cast<stl_multiset*>(c.ptr);
+  cc->current = cc->data.begin();
+  if (cc->current == cc->data.end())
+    return NULL;
   return *(cc->current);
 }
 
