@@ -3626,6 +3626,8 @@ add_printer_formats(cupsd_printer_t *p)	/* I - Printer */
   ipp_attribute_t *attr;		/* document-format-supported attribute */
   char		mimetype[MIME_MAX_SUPER + MIME_MAX_TYPE + 2];
 					/* MIME type name */
+  const char	*preferred = "image/urf";
+					/* document-format-preferred value */
 
 
  /*
@@ -3671,6 +3673,9 @@ add_printer_formats(cupsd_printer_t *p)	/* I - Printer */
 
       cupsArrayDelete(filters);
       cupsArrayAdd(p->filetypes, type);
+
+      if (!strcasecmp(mimetype, "application/pdf"))
+        preferred = "application/pdf";
     }
     else
       cupsdLogMessage(CUPSD_LOG_DEBUG2,
@@ -3707,6 +3712,8 @@ add_printer_formats(cupsd_printer_t *p)	/* I - Printer */
 
     attr->values[i].string.text = _cupsStrAlloc(mimetype);
   }
+
+  ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_CONST_TAG(IPP_TAG_MIMETYPE), "document-format-preferred", NULL, preferred);
 
 #ifdef HAVE_DNSSD
   {
@@ -3755,6 +3762,8 @@ add_printer_formats(cupsd_printer_t *p)	/* I - Printer */
 	  strlcat(pdl, "image/png,", sizeof(pdl));
 	else if (!_cups_strcasecmp(type->type, "pwg-raster"))
 	  strlcat(pdl, "image/pwg-raster,", sizeof(pdl));
+	else if (!_cups_strcasecmp(type->type, "urf"))
+	  strlcat(pdl, "image/urf,", sizeof(pdl));
       }
     }
 
