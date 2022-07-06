@@ -64,6 +64,7 @@ typedef struct _cups_monitor_s		/**** Monitoring data ****/
   ipp_jstate_t		job_state;	/* Current job state */
   ipp_pstate_t		printer_state;	/* Current printer state */
   int			retryable;	/* Is this a job that should be retried? */
+  const char		*oauth_token;	/* OAuth token or empty string if there is none */
 } _cups_monitor_t;
 
 
@@ -201,6 +202,7 @@ main(int  argc,				/* I - Number of command-line args */
   char		scheme[255],		/* Scheme in URI */
 		hostname[1024],		/* Hostname */
 		resource[1024],		/* Resource info (printer name) */
+		oauth_token[1024],	/* oauth token */
 		addrname[256],		/* Address name */
 		*optptr,		/* Pointer to URI options */
 		*name,			/* Name of option */
@@ -687,6 +689,21 @@ main(int  argc,				/* I - Number of command-line args */
   http = httpConnect2(hostname, port, addrlist, AF_UNSPEC, cupsEncryption(), 1,
                       0, NULL);
   httpSetTimeout(http, 30.0, timeout_cb, NULL);
+
+  // Parse our options to see if we have an oauth token
+  options = NULL;
+  num_options = cupsParseOptions(argv[5], 0, &options);
+  oauth_token[0] = '\0';
+  const char * oauth_option = cupsGetOption("chromeos-access-oauth-token",
+                                            num_options,
+                                            options);
+  if (oauth_option != NULL) {
+    const size_t max_size = sizeof(oauth_token) - 1;
+    strncpy(oauth_token, oauth_option, max_size);
+    oauth_token[max_size] = '\0';
+    httpSetAuthString(http, "Bearer", oauth_token);
+    httpSetField(http, HTTP_FIELD_AUTHORIZATION, oauth_token);
+  }
 
  /*
   * See if the printer supports SNMP...
@@ -1333,11 +1350,8 @@ main(int  argc,				/* I - Number of command-line args */
   * Prepare remaining printing options...
   */
 
-  options = NULL;
-
   if (send_options)
   {
-    num_options = cupsParseOptions(argv[5], 0, &options);
 
     if (!cups_version && media_col_sup)
     {
@@ -1479,6 +1493,7 @@ main(int  argc,				/* I - Number of command-line args */
   monitor.job_state     = IPP_JSTATE_PENDING;
   monitor.printer_state = IPP_PSTATE_IDLE;
   monitor.retryable     = argc == 6 && document_format && strcmp(document_format, "image/pwg-raster") && strcmp(document_format, "image/urf");
+  monitor.oauth_token   = oauth_token;
 
   fprintf(stderr, "DEBUG: retryable=%d\n", monitor.retryable);
 
@@ -2504,6 +2519,10 @@ monitor_printer(
   http = httpConnect2(monitor->hostname, monitor->port, NULL, AF_UNSPEC,
                       monitor->encryption, 1, 0, NULL);
   httpSetTimeout(http, 30.0, timeout_cb, NULL);
+  if (monitor->oauth_token != NULL && monitor->oauth_token[0] != '\0') {
+    httpSetAuthString(http, "Bearer", monitor->oauth_token);
+    httpSetField(http, HTTP_FIELD_AUTHORIZATION, monitor->oauth_token);
+  }
   if (username[0])
     cupsSetUser(username);
 
