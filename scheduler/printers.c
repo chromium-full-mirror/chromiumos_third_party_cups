@@ -5186,7 +5186,7 @@ add_job_password_mappings(
                         userid_mapping);
     }
   }
-  /*** Lexmark ***/
+  /*** Lexmark/Kyocera ***/
   else if (((coption = ppdFindCustomOption(ppd, "PnH")) != NULL) &&
            ((cparam = ppdFirstCustomParam(coption)) != NULL))
   {
