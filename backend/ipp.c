@@ -14,6 +14,8 @@
  */
 
 #include "backend-private.h"
+#include <cups/ipp.h>
+#include <cups/cups-private.h>
 #include <cups/ppd-private.h>
 #include <cups/array-private.h>
 #include <cups/ippusb-private.h>
@@ -98,6 +100,7 @@ static char		username[256] = "",
 					/* Password for device URI */
 static const char * const pattrs[] =	/* Printer attributes we want */
 {
+  "client-info-supported",
 #ifdef HAVE_LIBZ
   "compression-supported",
 #endif /* HAVE_LIBZ */
@@ -112,6 +115,7 @@ static const char * const pattrs[] =	/* Printer attributes we want */
   "marker-message",
   "marker-names",
   "marker-types",
+  "max-client-info-supported",
   "media-col-supported",
   "multiple-document-handling-supported",
   "operations-supported",
@@ -120,6 +124,7 @@ static const char * const pattrs[] =	/* Printer attributes we want */
   "printer-alert-description",
   "printer-is-accepting-jobs",
   "printer-mandatory-job-attributes",
+  "printer-requested-client-type",
   "printer-state",
   "printer-state-message",
   "printer-state-reasons"
@@ -167,7 +172,10 @@ static ipp_t		*new_request(ipp_op_t op, int version, const char *uri,
 				     ppd_file_t *ppd,
 				     ipp_attribute_t *media_col_sup,
 				     ipp_attribute_t *doc_handling_sup,
-				     ipp_attribute_t *print_color_mode_sup);
+				     ipp_attribute_t *print_color_mode_sup,
+				     ipp_attribute_t *client_info_supported,
+				     ipp_attribute_t *printer_requested_client_type,
+				     int max_client_info_supported);
 static const char	*password_cb(const char *prompt, http_t *http,
 			             const char *method, const char *resource,
 			             int *user_data);
@@ -181,7 +189,6 @@ static int		run_as_user(char *argv[], uid_t uid,
 static void		sigterm_handler(int sig);
 static int		timeout_cb(http_t *http, void *user_data);
 static void		update_reasons(ipp_attribute_t *attr, const char *s);
-
 
 /*
  * 'main()' - Send a file to the printer or server.
@@ -256,6 +263,10 @@ main(int  argc,				/* I - Number of command-line args */
   ipp_attribute_t *printer_state;	/* printer-state attribute */
   ipp_attribute_t *printer_accepting;	/* printer-is-accepting-jobs */
   ipp_attribute_t *print_color_mode_sup;/* Does printer support print-color-mode? */
+  ipp_attribute_t *client_info_supported; /* client-info-supported */
+  ipp_attribute_t *printer_requested_client_type; /* printer-requested-client-type */
+  ipp_attribute_t *max_client_info_supported_attr; /* max-client-info-supported attribute */
+  int 		max_client_info_supported = 0; /* max-client-info-supported value or 0  */
   int		create_job = 0,		/* Does printer support Create-Job? */
 		get_job_attrs = 0,	/* Does printer support Get-Job-Attributes? */
 		send_document = 0,	/* Does printer support Send-Document? */
@@ -1164,6 +1175,30 @@ main(int  argc,				/* I - Number of command-line args */
     }
 #endif /* HAVE_LIBZ */
 
+    if ((client_info_supported = ippFindAttribute(supported, "client-info-supported", IPP_TAG_KEYWORD)) != NULL)
+    {
+      fprintf(stderr, "DEBUG: client-info-supported (%d values)\n", client_info_supported->num_values);
+      for (i = 0; i < client_info_supported->num_values; i ++)
+      {
+        fprintf(stderr, "DEBUG: [%d] = \"%s\"\n", i, ippGetString(client_info_supported, i, NULL));
+      }
+    }
+
+    if ((printer_requested_client_type = ippFindAttribute(supported, "printer-requested-client-type", IPP_TAG_ENUM)) != NULL)
+    {
+      fprintf(stderr, "DEBUG: printer-requested-client-type (%d values)\n", printer_requested_client_type->num_values);
+      for (i = 0; i < printer_requested_client_type->num_values; i ++)
+      {
+        fprintf(stderr, "DEBUG: [%d] = \"%d\"\n", i, ippGetInteger(printer_requested_client_type, i));
+      }
+    }
+
+    if ((max_client_info_supported_attr = ippFindAttribute(supported, "max-client-info-supported", IPP_TAG_INTEGER)) != NULL)
+    {
+      max_client_info_supported = ippGetInteger(max_client_info_supported_attr, 0);
+      fprintf(stderr, "DEBUG: max-client-info-supported: %d\n", max_client_info_supported);
+    }
+
     if ((copies_sup = ippFindAttribute(supported, "copies-supported",
 	                               IPP_TAG_RANGE)) != NULL)
     {
@@ -1521,7 +1556,9 @@ main(int  argc,				/* I - Number of command-line args */
     request = new_request(IPP_OP_VALIDATE_JOB, version, uri, argv[2],
                           monitor.job_name, num_options, options, compression,
 			  copies_sup ? copies : 1, document_format, pc, ppd,
-			  media_col_sup, doc_handling_sup, print_color_mode_sup);
+			  media_col_sup, doc_handling_sup, print_color_mode_sup,
+			  client_info_supported, printer_requested_client_type,
+			  max_client_info_supported);
 
     response = cupsDoRequest(http, request, resource);
 
@@ -1644,7 +1681,9 @@ main(int  argc,				/* I - Number of command-line args */
 			  version, uri, argv[2], monitor.job_name, num_options,
 			  options, compression, copies_sup ? copies : 1,
 			  document_format, pc, ppd, media_col_sup,
-			  doc_handling_sup, print_color_mode_sup);
+			  doc_handling_sup, print_color_mode_sup,
+			  client_info_supported, printer_requested_client_type,
+			  max_client_info_supported);
 
    /*
     * Do the request...
@@ -2820,8 +2859,10 @@ new_request(
     ppd_file_t      *ppd,		/* I - PPD file data */
     ipp_attribute_t *media_col_sup,	/* I - media-col-supported values */
     ipp_attribute_t *doc_handling_sup,  /* I - multiple-document-handling-supported values */
-    ipp_attribute_t *print_color_mode_sup)
-					/* I - Printer supports print-color-mode */
+    ipp_attribute_t *print_color_mode_sup,		/* I - Printer supports print-color-mode */
+    ipp_attribute_t *client_info_supported,		/* I - client-info-supported values */
+    ipp_attribute_t *printer_requested_client_type,	/* I - printer-requested-client-type values */
+    int             max_client_info_supported)		/* I - max-client-info-supported value or 0 */
 {
   ipp_t		*request;		/* Request data */
   const char	*keyword;		/* PWG keyword */
@@ -2885,6 +2926,13 @@ new_request(
       */
 
       fputs("DEBUG: Adding standard IPP operation/job attributes.\n", stderr);
+
+      int should_send_client_info = (op == IPP_OP_PRINT_JOB || op == IPP_OP_CREATE_JOB || op == IPP_OP_PRINT_URI);
+      if (should_send_client_info && ((keyword = cupsGetOption("client-info", num_options, options)) != NULL))
+      {
+        fprintf(stderr, "DEBUG: client-info option = %s\n", keyword);
+        add_client_info_values_to_ipp(keyword, client_info_supported, printer_requested_client_type, max_client_info_supported, request);
+      }
 
       copies = _cupsConvertOptions(request, ppd, pc, media_col_sup, doc_handling_sup, print_color_mode_sup, user, format, copies, num_options, options);
 

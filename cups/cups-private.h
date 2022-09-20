@@ -305,6 +305,23 @@ extern char		*_cupsUserDefault(char *name, size_t namesize) _CUPS_INTERNAL;
  */
 ssize_t _cupsWriteWrapper(int filedes, const void *buffer, size_t size);
 
+/* Wrapper around `cups_collection_string` to make it publicly accessible.
+ * Making `cups_collection_string` public instead would potentially lead to
+ * merge conflicts with future CUPS updates.
+ * Returns the number of bytes written to `buffer` including the '\0' terminator
+ * written at the end.
+ */
+size_t 			_cupsCollectionString(ipp_attribute_t *attr, char *buffer, size_t bufsize);
+
+/*
+ * 'add_client_info_values_to_ipp()' - Parse client-info option and add it to the provided IPP request.
+ */
+void 	add_client_info_values_to_ipp(const char *client_info_option_value,
+                    ipp_attribute_t *client_info_supported,
+                    ipp_attribute_t *printer_requested_client_type,
+                    int max_client_info_supported,
+                    ipp_t *request);
+
 /*
  * C++ magic...
  */

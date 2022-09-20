@@ -118,6 +118,7 @@ TESTOBJS	= \
 GTEST_OBJS	= \
 		error-codes_unittest.o \
 		ppd-cache-private_unittest.o \
+		ipp_unittest.o \
 		googletests.o
 
 OBJS	=	\
@@ -503,9 +504,9 @@ rasterbench:	rasterbench.o $(LIBCUPSSTATIC)
 # Make the google unit tests, "googletests"
 #
 
-googletests:	$(GTEST_OBJS) error-codes.o ppd-cache-private.o
+googletests:	 $(GTEST_OBJS) $(LIBCUPSSTATIC)
 	echo Linking $@...
-	$(LD_CXX) $(LDFLAGS) -o $@ $^ $(shell $(PKG_CONFIG) --libs gtest)
+	$(LD_CXX) $(LDFLAGS) -o $@ $^ $(shell $(PKG_CONFIG) --libs gtest) $(LINKCUPSSTATIC)
 
 
 #
