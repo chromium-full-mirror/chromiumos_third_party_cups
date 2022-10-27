@@ -1,5 +1,1 @@
-pawliczek@chromium.org
-luum@chromium.org
-skau@chromium.org
-batrapranav@chromium.org
-kdlee@chromium.org
+include chromiumos/platform2:main:/cups_proxy/OWNERS
