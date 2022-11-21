@@ -14,6 +14,7 @@
 
 #include "cupsd.h"
 #include "mime.h"
+#include <cups/ipp.h>
 #include <grp.h>
 #include <cups/backend.h>
 #include <cups/dir.h>
@@ -4000,6 +4001,20 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	     (attr->value_tag == IPP_TAG_NAME ||
 	      attr->value_tag == IPP_TAG_NAMELANG))
       strlcpy(title, attr->values[0].string.text, title_size);
+    else if (!strcmp(attr->name, "client-info") && attr->value_tag == IPP_TAG_BEGIN_COLLECTION)
+    {
+        // Pass the 'client-info' collection to the IPP backend. See http://b/247763135.
+        // `optlength` is the total required size for all options.
+        // `options` is a pointer to the start of the buffer allocated for the options.
+        // `optptr` points to the place in the buffer where the current option starts.
+        if (optptr > options)
+          strlcat(optptr, " ", optlength - (size_t)(optptr - options));
+	      strlcat(optptr, attr->name, optlength - (size_t)(optptr - options));
+	      strlcat(optptr, "=", optlength - (size_t)(optptr - options));
+        optptr += strlen(optptr);
+        optptr += _cupsCollectionString(attr, optptr, optlength - (size_t)(optptr - options));
+        continue;
+    }
     else if (attr->group_tag == IPP_TAG_JOB)
     {
      /*
@@ -4012,8 +4027,7 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	  attr->value_tag == IPP_TAG_TEXTLANG ||
 	  (attr->value_tag == IPP_TAG_URI && strcmp(attr->name, "job-uuid") &&
 	   strcmp(attr->name, "job-authorization-uri")) ||
-	  attr->value_tag == IPP_TAG_URISCHEME ||
-	  attr->value_tag == IPP_TAG_BEGIN_COLLECTION) /* Not yet supported */
+	  attr->value_tag == IPP_TAG_URISCHEME) /* Not yet supported */
 	continue;
 
       if (!strcmp(attr->name, "job-hold-until") ||
@@ -4322,6 +4336,26 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
           for (i = 0; i < attr->num_values; i ++)
 	    bytes += 2 * strlen(attr->values[i].string.text) + 2;
 	  break;
+
+      case IPP_TAG_BEGIN_COLLECTION:
+      {
+        // Add the space needed for 'client-info'.
+        // Other collections are not supported.
+        if (!strcmp(attr->name, "client-info"))
+        {
+          int coll_count = ippGetCount(attr);
+          // Add space for comma separators between collections.
+          bytes += coll_count - 1;
+          // Add space for curly braces around each collection.
+          bytes += 2 * coll_count;
+          // Add space needed for each member collection.
+          for (int i = 0; i < coll_count; ++i)
+          {
+            bytes += ipp_length(ippGetCollection(attr, i));
+          }
+          break;
+        }
+      }
 
        default :
 	  break; /* anti-compiler-warning-code */

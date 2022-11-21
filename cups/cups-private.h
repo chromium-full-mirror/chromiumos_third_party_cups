@@ -297,6 +297,12 @@ extern char		*_cupsUserDefault(char *name, size_t namesize) _CUPS_INTERNAL;
  */
 ssize_t _cupsWriteWrapper(int filedes, const void *buffer, size_t size);
 
+/* Wrapper around `cups_collection_string` to make it publicly accessible.
+ * Making `cups_collection_string` public instead would potentially lead to
+ * merge conflicts with future CUPS updates.
+ */
+size_t 			_cupsCollectionString(ipp_attribute_t *attr, char *buffer, size_t bufsize);
+
 /*
  * C++ magic...
  */
