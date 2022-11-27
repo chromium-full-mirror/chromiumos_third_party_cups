@@ -671,7 +671,7 @@ _cupsEncodeOption(
 	  }
 
 	  ippSetCollection(ipp, &attr, i, collection);
-	  cupsEncodeOptions2(collection, num_cols, cols, IPP_TAG_JOB);
+	  cupsEncodeOptions2(collection, num_cols, cols, group_tag);
 	  cupsFreeOptions(num_cols, cols);
 	  ippDelete(collection);
 	  break;
