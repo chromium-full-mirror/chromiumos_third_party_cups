@@ -3968,7 +3968,7 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
 
   p->ppd_attrs = ippNew();
 
-  if ((ppd = _ppdOpenFile(ppd_name, _PPD_LOCALIZATION_NONE)) != NULL)
+  if ((ppd = _ppdOpenFile(ppd_name, _PPD_LOCALIZATION_DEFAULT)) != NULL)
   {
    /*
     * Add make/model and other various attributes...
