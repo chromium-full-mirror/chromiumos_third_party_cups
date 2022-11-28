@@ -654,7 +654,6 @@ main(int  argc,				/* I - Number of command-line arguments */
     else
       puts("PASS");
 
-#ifdef HAVE_LOCALIZATION
    /*
     * Test localization...
     */
@@ -804,7 +803,6 @@ main(int  argc,				/* I - Number of command-line arguments */
     }
 
     ppdClose(ppd);
-#endif /* HAVE_LOCALIZATION */
 
     /* Force US English base locale */
     putenv("LANG=en");

@@ -19,7 +19,6 @@
 #include "debug-internal.h"
 
 
-#ifdef HAVE_LOCALIZATION
 /*
  * Local functions...
  */
@@ -563,7 +562,6 @@ _ppdGetLanguages(ppd_file_t *ppd)	/* I - PPD file */
   else
     return (languages);
 }
-#endif /* HAVE_LOCALIZATION */
 
 
 /*
@@ -587,7 +585,6 @@ _ppdHashName(const char *name)		/* I - Name to hash */
 }
 
 
-#ifdef HAVE_LOCALIZATION
 /*
  * '_ppdLocalizedAttr()' - Find a localized attribute.
  */
@@ -731,46 +728,3 @@ ppd_ll_CC(char   *ll_CC,		/* O - Country-specific locale name */
                 lang->language, ll_CC));
   return (lang);
 }
-#else /* HAVE_LOCALIZATION */
-int					/* O - 0 on success, -1 on error */
-ppdLocalize(ppd_file_t *ppd)		/* I - PPD file */
-{ return 0; }
-
-ppd_attr_t *				/* O - Localized attribute or @code NULL@ if none exists */
-ppdLocalizeAttr(ppd_file_t *ppd,	/* I - PPD file */
-		const char *keyword,	/* I - Main keyword */
-		const char *spec)	/* I - Option keyword or @code NULL@ for none */
-{ return NULL; }
-
-const char *				/* O - Value or NULL if not found */
-ppdLocalizeIPPReason(
-    ppd_file_t *ppd,			/* I - PPD file */
-    const char *reason,			/* I - IPP reason keyword to look up */
-    const char *scheme,			/* I - URI scheme or NULL for text */
-    char       *buffer,			/* I - Value buffer */
-    size_t     bufsize)			/* I - Size of value buffer */
-{ return NULL; }
-
-
-const char *				/* O - Value or @code NULL@ if not found */
-ppdLocalizeMarkerName(
-    ppd_file_t *ppd,			/* I - PPD file */
-    const char *name)			/* I - Marker name to look up */
-{ return NULL; }
-
-void
-_ppdFreeLanguages(
-    cups_array_t *languages)		/* I - Languages array */
-{}
-
-cups_array_t *				/* O - Languages array */
-_ppdGetLanguages(ppd_file_t *ppd)	/* I - PPD file */
-{ return NULL; }
-
-ppd_attr_t *				/* O - Localized attribute or NULL */
-_ppdLocalizedAttr(ppd_file_t *ppd,	/* I - PPD file */
-		  const char *keyword,	/* I - Main keyword */
-		  const char *spec,	/* I - Option keyword */
-		  const char *ll_CC)	/* I - Language + country locale */
-{ return NULL; }
-#endif /* HAVE_LOCALIZATION */

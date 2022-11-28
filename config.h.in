@@ -651,11 +651,6 @@
 #undef HAVE_SYS_STATVFS_H
 #undef HAVE_SYS_VFS_H
 
-/*
- * Do we have localization?
- */
-
-#undef HAVE_LOCALIZATION
 
 
 /*

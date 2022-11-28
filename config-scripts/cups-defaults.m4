@@ -56,16 +56,6 @@ AS_IF([test "x$cups_bundlelang" != x -a "x$CUPS_BUNDLEDIR" != x], [
 ])
 AC_SUBST([CUPS_RESOURCEDIR])
 
-AC_ARG_ENABLE(localization, [  --enable-localization  build with localization features enabled])
-
-if test x$enable_localization = xyes; then
-	AC_DEFINE(HAVE_LOCALIZATION)
-else
-	LANGUAGES=""
-	CUPS_RESOURCEDIR=""
-	CUPS_BUNDLEDIR=""
-fi
-
 dnl Default executable file permissions
 AC_ARG_WITH([exe_file_perm], AS_HELP_STRING([--with-exe-file-perm], [set default executable permissions value, default=0755]), [
     CUPS_EXE_FILE_PERM="$withval"
