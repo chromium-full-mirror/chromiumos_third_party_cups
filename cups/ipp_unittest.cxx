@@ -78,7 +78,7 @@ TEST(IppClientInfoTests, ClientTypeIntToString) {
 TEST(IppClientInfoTests, EncodeClientInfoCupsOption) {
   ScopedIppPtr ipp = WrapIpp(ippNew());
   ipp_attribute_t* client_info_attr = cupsEncodeOption(
-      ipp.get(), IPP_TAG_JOB, "client-info",
+      ipp.get(), IPP_TAG_OPERATION, "client-info",
       "{client-name=ChromeOS client-type=4 client-string-version=M108 "
       "client-patches=0.5410.0 "
       "client-version=no-value},{client-name=chromebook-123 "
