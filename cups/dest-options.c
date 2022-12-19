@@ -2849,3 +2849,12 @@ cups_update_ready(http_t       *http,	/* I - Connection to destination */
 
   dinfo->ready_time = time(NULL);
 }
+
+/*
+ * '_cupsCollectionString()' - Publicly exported wrapper around 'cups_collection_string()'.
+ */
+size_t
+_cupsCollectionString(ipp_attribute_t *attr, char *buffer, size_t bufsize)
+{
+  return cups_collection_string(attr, buffer, bufsize);
+}

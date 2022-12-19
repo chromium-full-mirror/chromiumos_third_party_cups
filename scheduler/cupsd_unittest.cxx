@@ -8,11 +8,14 @@ extern "C" {
 
 #include <string>
 #include <vector>
+#include <cups/ipp.h>
 
 #include "base/files/scoped_temp_dir.h"
 #include "base/files/file_util.h"
+#include "base/strings/string_split.h"
 #include "base/strings/string_util.h"
 #include "brillo/file_utils.h"
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 
 namespace {
@@ -20,6 +23,14 @@ namespace {
 constexpr char kPrinter[] = "thefake";
 const base::FilePath kPpdPath =
     base::FilePath("conf/ppd").Append(kPrinter).AddExtension("ppd");
+
+struct ClientInfo {
+  std::string name;
+  std::string str_version;
+  absl::optional<std::string> version;
+  absl::optional<std::string> patches;
+  int type;
+};
 
 class PrintJob : public testing::Test {
  public:
@@ -103,6 +114,40 @@ class PrintJob : public testing::Test {
   // Chainable function to add the IPP media-source-supported attribute.
   const PrintJob& MediaSources(const std::vector<std::string>& values) const {
     AddIppStrings("media-source-supported", values);
+    return *this;
+  }
+
+  // Chainable function to add the IPP client-info attribute.
+  const PrintJob& ClientInfos(
+      const std::vector<ClientInfo>& client_infos) const {
+    std::vector<ipp_t*> collections;
+    for (const ClientInfo& client_info : client_infos) {
+      ipp_t* ipp = ippNew();
+      ippAddInteger(ipp, IPP_TAG_ZERO, IPP_TAG_ENUM, "client-type",
+                    client_info.type);
+      ippAddString(ipp, IPP_TAG_ZERO, IPP_TAG_NAME, "client-name", nullptr,
+                   client_info.name.c_str());
+      ippAddString(ipp, IPP_TAG_ZERO, IPP_TAG_TEXT, "client-string-version",
+                   nullptr, client_info.str_version.c_str());
+      if (client_info.patches.has_value()) {
+        ippAddString(ipp, IPP_TAG_ZERO, IPP_TAG_TEXT, "client-patches", nullptr,
+                     client_info.patches.value().c_str());
+      }
+      if (client_info.version.has_value()) {
+        ippAddOctetString(ipp, IPP_TAG_ZERO, "client-version",
+                          client_info.version.value().data(),
+                          client_info.version.value().size());
+      }
+      collections.push_back(ipp);
+    }
+    AddIppCollections(
+        "client-info",
+        std::vector<const ipp_t*>(collections.begin(), collections.end()),
+        IPP_TAG_OPERATION);
+
+    for (ipp_t* collection : collections) {
+      ippDelete(collection);
+    }
     return *this;
   }
 
@@ -230,6 +275,14 @@ class PrintJob : public testing::Test {
                               vals.size(), nullptr, vals.data()));
   }
 
+  void AddIppCollections(const std::string& name,
+                         std::vector<const ipp_t*> collections,
+                         ipp_tag_t group_tag) const {
+    ASSERT_TRUE(job_->attrs);
+    ASSERT_TRUE(ippAddCollections(job_->attrs, group_tag, name.c_str(),
+                                  collections.size(), collections.data()));
+  }
+
   cupsd_job_t* const job_;
 };
 
@@ -263,6 +316,20 @@ std::string ResOpt(const std::string& res_name, std::string res_value) {
 // By default "Resolution" is used as the PPD resolution attribute name.
 std::string ResOpt(std::string res_value) {
   return ResOpt("Resolution", std::move(res_value));
+}
+
+std::vector<std::string> GetClientInfoMemberOptions(
+    base::StringPiece client_info_option) {
+  EXPECT_GE(client_info_option.size(), 2u);
+  EXPECT_EQ(client_info_option.front(), '{');
+  EXPECT_EQ(client_info_option.back(), '}');
+
+  base::StringPiece option_without_braces(client_info_option);
+  option_without_braces.remove_prefix(1);
+  option_without_braces.remove_suffix(1);
+
+  return base::SplitString(option_without_braces, " ", base::TRIM_WHITESPACE,
+                           base::SPLIT_WANT_NONEMPTY);
 }
 
 }  // namespace
@@ -514,4 +581,30 @@ TEST_F(PrintJob, IppPpdResolutionMapping_MultiplePpdResolutions) {
   EXPECT_TRUE(CheckOptionSupported("printer-resolution", "600dpi"));
   EXPECT_FALSE(CheckOptionSupported("printer-resolution", "600x300dpi"));
   EXPECT_TRUE(DefaultResolution().empty());
+}
+
+TEST_F(PrintJob, IppClientInfoToOptionMapping) {
+  SetPrinter("*PPD-Adobe: 4.3");
+  EXPECT_TRUE(Filter().empty());
+  std::string opt_string =
+      ClientInfos({{"a", "b", "c", "d", 3},
+                   {"d", "c", absl::nullopt, absl::nullopt, 4}})
+          .Filter();
+  base::StringPiece opt_string_piece = opt_string;
+  ASSERT_GE(opt_string_piece.size(), 12);
+  ASSERT_EQ(opt_string_piece.substr(0, 12), "client-info=");
+  opt_string_piece.remove_prefix(12);
+
+  std::vector<std::string> values = base::SplitString(
+      opt_string_piece, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  ASSERT_EQ(values.size(), 2);
+  EXPECT_THAT(
+      GetClientInfoMemberOptions(values[0]),
+      testing::UnorderedElementsAre(
+          "client-name=\"a\"", "client-type=3", "client-string-version=\"b\"",
+          "client-patches=\"d\"", "client-version=\"c\""));
+  EXPECT_THAT(
+      GetClientInfoMemberOptions(values[1]),
+      testing::UnorderedElementsAre("client-name=\"d\"", "client-type=4",
+                                    "client-string-version=\"c\""));
 }
