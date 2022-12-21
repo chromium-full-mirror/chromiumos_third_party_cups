@@ -1847,7 +1847,7 @@ sigterm_handler(int sig)		/* I - Signal number */
  * 'service_add_listener()' - Bind an open fd as a Listener.
  */
 
-static void
+static int
 service_add_listener(int fd,		/* I - Socket file descriptor */
                      int idx)		/* I - Listener number, for logging */
 {
@@ -1862,7 +1862,7 @@ service_add_listener(int fd,		/* I - Socket file descriptor */
   if (getsockname(fd, (struct sockaddr *)&addr, &addrlen))
   {
     cupsdLogMessage(CUPSD_LOG_ERROR, "service_add_listener: Unable to get local address for listener #%d: %s", idx + 1, strerror(errno));
-    return;
+    return 0;
   }
 
   cupsdLogMessage(CUPSD_LOG_DEBUG, "service_add_listener: Listener #%d at fd %d, \"%s\".", idx + 1, fd, httpAddrString(&addr, s, sizeof(s)));
@@ -1893,7 +1893,7 @@ service_add_listener(int fd,		/* I - Socket file descriptor */
     {
       cupsdLogMessage(CUPSD_LOG_ERROR, "service_add_listener: Unable to allocate listener: %s.", strerror(errno));
       exit(EXIT_FAILURE);
-      return;
+      return 0;
     }
 
     cupsArrayAdd(Listeners, lis);
@@ -1908,6 +1908,7 @@ service_add_listener(int fd,		/* I - Socket file descriptor */
   if (httpAddrPort(&(lis->address)) == 443)
     lis->encryption = HTTP_ENCRYPT_ALWAYS;
 #  endif /* HAVE_TLS */
+  return 1;
 }
 #endif /* HAVE_ONDEMAND */
 
@@ -2033,7 +2034,11 @@ service_checkin(void)
     * Upstart only supportst a single on-demand socket file descriptor...
     */
 
-    service_add_listener(fd, 0);
+    if (!service_add_listener(fd, 0)) {
+      cupsdLogMessage(CUPSD_LOG_ERROR, "service_checkin: Failed to create listener from UPSTART_FDS");
+      exit(EXIT_FAILURE);
+      return;
+    }
   }
 #endif /* HAVE_LAUNCHD */
 }
