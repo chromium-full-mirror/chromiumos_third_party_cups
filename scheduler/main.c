@@ -58,6 +58,13 @@
 #  include <sys/param.h>
 #endif /* HAVE_SYS_PARAM_H */
 
+/*
+ * TODO(b/262038445): Remove these headers when extra logging is removed.
+ */
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 /*
  * Local functions...
@@ -1861,7 +1868,49 @@ service_add_listener(int fd,		/* I - Socket file descriptor */
 
   if (getsockname(fd, (struct sockaddr *)&addr, &addrlen))
   {
-    cupsdLogMessage(CUPSD_LOG_ERROR, "service_add_listener: Unable to get local address for listener #%d: %s", idx + 1, strerror(errno));
+    cupsdLogMessage(CUPSD_LOG_ERROR, "service_add_listener: Unable to get local address of fd %d for listener #%d: %s", fd, idx + 1, strerror(errno));
+    /*
+     * TODO(b/262038445): Remove these extra logs once the cause of invalid
+     * sockets being passed from upstart is determined.
+     */
+    cupsdLogMessage(CUPSD_LOG_ERROR, "service_add_listener: UPSTART_FDS=%s", getenv("UPSTART_FDS"));
+
+    struct stat statbuf;
+    if (lstat("/run/cups/cups.sock", &statbuf) < 0) {
+      cupsdLogMessage(CUPSD_LOG_ERROR, "service_add_listener: Unable to stat /run/cups/cups.sock: %s", strerror(errno));
+      // No return here because we still want to record open fds.
+    } else {
+      cupsdLogMessage(CUPSD_LOG_ERROR, "service_add_listener: /run/cups/cups.sock st_ino=%lu st_mode.type=0x%x st_mode.perms=%0o",
+                      statbuf.st_ino, statbuf.st_mode & S_IFMT, statbuf.st_mode & 07777);
+    }
+
+    DIR *fd_dir = opendir("/proc/self/fd");
+    if (!fd_dir) {
+      cupsdLogMessage(CUPSD_LOG_ERROR, "service_add_listener: Unable to open /proc/self/fd: %s", strerror(errno));
+      return 0;
+    }
+
+    struct dirent *dirent;
+    while ((dirent = readdir(fd_dir)) != NULL) {
+      if (dirent->d_type != DT_LNK) {
+        continue;
+      }
+
+      char path[PATH_MAX+1];
+      snprintf(path, sizeof(path), "/proc/self/fd/%s", dirent->d_name);
+
+      char dest[PATH_MAX+1];
+      if (readlink(path, dest, sizeof(dest)) < 0) {
+        cupsdLogMessage(CUPSD_LOG_ERROR, "service_add_listener: Unable to read destination of %s: %s", path, strerror(errno));
+        closedir(fd_dir);
+        return 0;
+      }
+      dest[PATH_MAX] = '\0'; // readlink doesn't null-terminate if dest is too small.
+
+      cupsdLogMessage(CUPSD_LOG_ERROR, "service_add_listener: %s -> %s", path, dest);
+    }
+    closedir(fd_dir);
+
     return 0;
   }
 
