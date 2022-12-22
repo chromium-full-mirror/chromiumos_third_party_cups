@@ -1127,7 +1127,7 @@ cupsdReadConfiguration(void)
 			     Group, 1, 1) < 0 ||
        cupsdCheckPermissions(temp, NULL, 0775, RunUser,
 			     Group, 1, 1) < 0 ||
-       cupsdCheckPermissions(StateDir, NULL, 0755, RunUser,
+       cupsdCheckPermissions(StateDir, NULL, 0775, "root",
 			     Group, 1, 1) < 0 ||
        /* Inside a Snap cupsd is running as root without CAP_DAC_OVERRIDE
 	  capability, so certs directory has to be root.root-owned so that
