@@ -1123,7 +1123,7 @@ cupsdReadConfiguration(void)
 			     Group, 1, 1) < 0 ||
        cupsdCheckPermissions(temp, NULL, 0775, RunUser,
 			     Group, 1, 1) < 0 ||
-       cupsdCheckPermissions(StateDir, NULL, 0755, RunUser,
+       cupsdCheckPermissions(StateDir, NULL, 0775, "root",
 			     Group, 1, 1) < 0 ||
 #if CUPS_SNAP
        cupsdCheckPermissions(StateDir, "certs", 0711, RunUser, 0, 1, 1) < 0 ||
