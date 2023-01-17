@@ -4012,7 +4012,9 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	      strlcat(optptr, attr->name, optlength - (size_t)(optptr - options));
 	      strlcat(optptr, "=", optlength - (size_t)(optptr - options));
         optptr += strlen(optptr);
-        optptr += _cupsCollectionString(attr, optptr, optlength - (size_t)(optptr - options));
+        // `_cupsCollectionString()` returns the number of bytes written including the '\0' at the end,
+        // that's why we subtract 1 from the result.
+        optptr += _cupsCollectionString(attr, optptr, optlength - (size_t)(optptr - options)) - 1;
         continue;
     }
     else if (attr->group_tag == IPP_TAG_JOB)

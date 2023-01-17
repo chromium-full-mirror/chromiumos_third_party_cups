@@ -300,6 +300,8 @@ ssize_t _cupsWriteWrapper(int filedes, const void *buffer, size_t size);
 /* Wrapper around `cups_collection_string` to make it publicly accessible.
  * Making `cups_collection_string` public instead would potentially lead to
  * merge conflicts with future CUPS updates.
+ * Returns the number of bytes written to `buffer` including the '\0' terminator
+ * written at the end.
  */
 size_t 			_cupsCollectionString(ipp_attribute_t *attr, char *buffer, size_t bufsize);
 

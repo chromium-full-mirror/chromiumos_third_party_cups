@@ -590,13 +590,11 @@ TEST_F(PrintJob, IppClientInfoToOptionMapping) {
       ClientInfos({{"a", "b", "c", "d", 3},
                    {"d", "c", absl::nullopt, absl::nullopt, 4}})
           .Filter();
-  base::StringPiece opt_string_piece = opt_string;
-  ASSERT_GE(opt_string_piece.size(), 12);
-  ASSERT_EQ(opt_string_piece.substr(0, 12), "client-info=");
-  opt_string_piece.remove_prefix(12);
+  ASSERT_THAT(opt_string, testing::StartsWith("client-info="));
 
-  std::vector<std::string> values = base::SplitString(
-      opt_string_piece, ",", base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
+  std::vector<std::string> values =
+      base::SplitString(base::StringPiece(opt_string.data() + 12), ",",
+                        base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
   ASSERT_EQ(values.size(), 2);
   EXPECT_THAT(
       GetClientInfoMemberOptions(values[0]),
@@ -607,4 +605,34 @@ TEST_F(PrintJob, IppClientInfoToOptionMapping) {
       GetClientInfoMemberOptions(values[1]),
       testing::UnorderedElementsAre("client-name=\"d\"", "client-type=4",
                                     "client-string-version=\"c\""));
+}
+
+// This is a regression test for http://b/265760617.
+TEST_F(PrintJob, IppClientInfoWithOtherOptions) {
+  SetPrinter("*PPD-Adobe: 4.3");
+  EXPECT_TRUE(Filter().empty());
+  std::string opt_string = ClientInfos({
+                                           {"a", "b", "c", "d", 3},
+                                       })
+                               .Password("1234")
+                               .Filter();
+  size_t client_info_end_pos = opt_string.find('}');
+  ASSERT_NE(client_info_end_pos, std::string::npos);
+  const base::StringPiece client_info_opt(opt_string.data(),
+                                          client_info_end_pos + 1);
+  ASSERT_THAT(client_info_opt, testing::StartsWith("client-info="));
+
+  const base::StringPiece client_info_opt_value = client_info_opt.substr(12);
+  EXPECT_THAT(
+      GetClientInfoMemberOptions(client_info_opt_value),
+      testing::UnorderedElementsAre(
+          "client-name=\"a\"", "client-type=3", "client-string-version=\"b\"",
+          "client-patches=\"d\"", "client-version=\"c\""));
+
+  size_t job_password_start_pos =
+      opt_string.find("job-password", client_info_end_pos);
+  ASSERT_NE(job_password_start_pos, std::string::npos);
+  const base::StringPiece job_password_opt(opt_string.data() +
+                                           job_password_start_pos);
+  EXPECT_EQ(job_password_opt, "job-password=1234");
 }
