@@ -2858,3 +2858,86 @@ _cupsCollectionString(ipp_attribute_t *attr, char *buffer, size_t bufsize)
 {
   return cups_collection_string(attr, buffer, bufsize);
 }
+
+
+/*
+ * 'add_client_info_values_to_ipp()' - Parse client-info option and add it to the provided IPP request.
+ */
+
+void
+add_client_info_values_to_ipp(const char *client_info_option_value, /* I - client-info option value */
+                    ipp_attribute_t *client_info_supported, /* I - client-info-supported values */
+                    ipp_attribute_t *printer_requested_client_type, /* I - printer-requested-client-type values */
+                    int max_client_info_supported, /* I - max-client-info-supported value or 0 */
+                    ipp_t *request) /* IPP request */
+{
+  // If client-info is not supported at all, do nothing.
+  if (client_info_supported == NULL)
+  {
+    return;
+  }
+
+  // Parse 'client-info' option and add it to the request.
+  ipp_attribute_t *client_info_attr = cupsEncodeOption(request, IPP_TAG_OPERATION, "client-info", client_info_option_value);
+  int client_info_count = ippGetCount(client_info_attr);
+
+  // Add 'no-value' out-of-band values for missing 'client-version' and 'client-patches'.
+  // 'no-value' is an allowed value for these attributes but there is currently no way to
+  // encode out-of-band values as string options and send them as job options.
+  for (int i = 0; i < client_info_count; ++i)
+  {
+    ipp_t *client_info = ippGetCollection(client_info_attr, i);
+    ipp_attribute_t *version_attr = ippFindAttribute(client_info, "client-version", IPP_TAG_STRING);
+    ipp_attribute_t *patches_attr = ippFindAttribute(client_info, "client-patches", IPP_TAG_TEXT);
+    if (!version_attr)
+    {
+      ippAddOutOfBand(client_info, IPP_TAG_ZERO, IPP_TAG_NOVALUE, "client-version");
+    }
+    if (!patches_attr)
+    {
+      ippAddOutOfBand(client_info, IPP_TAG_ZERO, IPP_TAG_NOVALUE, "client-patches");
+    }
+  }
+
+  // Now go over all 'client-info' items and check if they are valid.
+  for (int i = client_info_count - 1; i >= 0; --i)
+  {
+    ipp_t *client_info = ippGetCollection(client_info_attr, i);
+
+    // If 'printer-requested-client-type' is set, then only permit 'client-info' values
+    // where 'client-type' is among 'printer-requested-client-type' values.
+    if (printer_requested_client_type != NULL)
+    {
+      ipp_attribute_t *attr = ippFindAttribute(client_info, "client-type", IPP_TAG_ENUM);
+      if (attr != NULL)
+      {
+        int client_type = ippGetInteger(attr, 0);
+        if (!ippContainsInteger(printer_requested_client_type, client_type))
+        {
+          ippDeleteValues(request, &client_info_attr, i, 1);
+          continue;
+        }
+      }
+    }
+
+    // Iterate over all member attributes and remove the ones not in 'client-info-supported'.
+    ipp_attribute_t *attr = client_info->attrs;
+    while (attr != NULL)
+    {
+      ipp_attribute_t *next_attr = attr->next;
+      if (!ippContainsString(client_info_supported, ippGetName(attr)))
+      {
+        ippDeleteAttribute(client_info, attr);
+      }
+      attr = next_attr;
+    }
+  }
+
+  // Respect the 'max-client-info-supported' limit.
+  client_info_count = ippGetCount(client_info_attr);
+  if (max_client_info_supported != 0 && client_info_count > max_client_info_supported)
+  {
+    ippDeleteValues(request, &client_info_attr, max_client_info_supported,
+                    client_info_count - max_client_info_supported);
+  }
+}

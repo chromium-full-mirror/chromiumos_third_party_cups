@@ -306,6 +306,15 @@ ssize_t _cupsWriteWrapper(int filedes, const void *buffer, size_t size);
 size_t 			_cupsCollectionString(ipp_attribute_t *attr, char *buffer, size_t bufsize);
 
 /*
+ * 'add_client_info_values_to_ipp()' - Parse client-info option and add it to the provided IPP request.
+ */
+void 	add_client_info_values_to_ipp(const char *client_info_option_value,
+                    ipp_attribute_t *client_info_supported,
+                    ipp_attribute_t *printer_requested_client_type,
+                    int max_client_info_supported,
+                    ipp_t *request);
+
+/*
  * C++ magic...
  */
 
