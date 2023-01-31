@@ -22,6 +22,51 @@ static const char kRegularConfig[] = "/etc/cups/cupsd.conf";
 static const char kDebugConfig[] = "/etc/cups/cupsd-debug.conf";
 static const char kCupsdPath[] = "/usr/sbin/cupsd";
 static const char kDebugTriggerPath[] = "/run/cups/debug/debug-flag";
+static const char kCupsDebugLevel[] = "5";
+
+// cupsd debug messages aren't organized in any coherent way, so this is
+// essentially a list of DEBUG_printf message prefixes that contain useful
+// information.  This list tries to capture most of the parsing and HTTP/IPP
+// handling while omitting as much as possible of the low-level tracking of
+// bytes sent and received.
+static const char kCupsDebugFilterRegex[] =
+    "^("
+    "httpAddr"
+    "|httpConnect"
+    "|httpGetHost"
+    "|httpReadRequest:"
+    "|httpReconnect2:"
+    "|httpSet"
+    "|httpUpdate"
+    "|httpWriteResponse"
+    "|http_create"
+    "|http_resolve"
+    "|_httpResolveURI"
+    "|_httpTLSStart"
+    "|_httpTLSStop"
+    "|_httpUpdate:"
+    "|ippAdd"
+    "|ippWriteIO:"
+    "|_ipp"
+    "|cupsAddDestMediaOptions"
+    "|cupsAddOption"
+    "|cupsDo"
+    "|cupsFileOpen"
+    "|cupsGetDest"
+    "|cupsGetDevices"
+    "|cupsGetNamed"
+    "|cupsGetOption"
+    "|cupsGetPPD"
+    "|cupsGetResponse"
+    "|cupsParse"
+    "|cupsSend"
+    "|cupsWrite"
+    "|cups_dnssd"
+    "|cups_get_printer"
+    "|_cupsGetDest"
+    "|_ppd"
+    "|ppd"
+    ")";
 
 // Removes the file for the listening socket without failing if the file is
 // missing.  Returns 0 on success or an errno value on failure.
@@ -163,6 +208,13 @@ int main(int argc, char** argv) {
   } else {
     // The file exists.  We don't care what attributes were returned from stat.
     config_path = kDebugConfig;
+
+    // Enable extra cupsd debugging with some extra environment variables.
+    // We don't replace the environment so that people can override these
+    // by hand-editing the init script.
+    setenv("CUPS_DEBUG_LEVEL", kCupsDebugLevel, 0);
+    setenv("CUPS_DEBUG_LOG", "-", 0);
+    setenv("CUPS_DEBUG_FILTER", kCupsDebugFilterRegex, 0);
   }
 
   // Replace this process with cupsd.  Upstart will manage cleaning up and
