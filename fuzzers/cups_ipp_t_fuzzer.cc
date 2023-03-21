@@ -142,5 +142,7 @@ void CupsIppTFuzz(const uint8_t* data, size_t size) {
 
 extern "C" int LLVMFuzzerTestOneInput(const uint8_t* data, size_t size) {
   CupsIppTFuzz(data, size);
+  names.clear();
+  sequences.clear();
   return 0;
 }
