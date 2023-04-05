@@ -2223,6 +2223,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
 		need_restart_job,	/* Need to restart job? */
 		set_device_uri,		/* Did we set the device URI? */
 		set_port_monitor;	/* Did we set the port monitor? */
+  const char	*natural_language;	/* Value of "attributes-natural-language" */
 
 
   cupsdLogMessage(CUPSD_LOG_DEBUG2, "add_printer(%p[%d], %s)", con,
@@ -2807,7 +2808,31 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
     cupsdMarkDirty(CUPSD_DIRTY_PRINTERS);
   }
 
+  /*
+   * This CrOS-specific hack pairs with the language-setting hack in lpadmin.
+   * CUPS doesn't have proper multi-language support. When setting up a printer, it generates
+   * localized strings for that printer's options in whatever it thinks the "default" language
+   * is. In order to get human-readable names for non-standard media types, CUPS needs to know
+   * the user's language when setting up the printer. But since language in CrOS is a Chromium
+   * preference, CUPS doesn't know about it normally. Setting the LANG environment variable
+   * here to the value of the request's "attributes-natural-language" will change the language
+   * returned by cupsLangDefault(), meaning that cupsd will set the "attributes-natural-language"
+   * attribute to that language when sending requests to IPP printers, and the PPD cache
+   * generator will use that language when looking for localized strings in the PPD.
+   */
+  attr = ippFindAttribute(con->request, "attributes-natural-language", IPP_TAG_LANGUAGE);
+  natural_language = ippGetString(attr, 0, NULL);
+  /* Make sure natural_language is a valid parameter to setenv(). */
+  if (natural_language && *natural_language && !strchr(natural_language, '='))
+  {
+    cupsdLogMessage(CUPSD_LOG_NOTICE, "Adding printer with language %s", natural_language);
+    setenv("LANG", natural_language, 1);
+  }
+
   cupsdSetPrinterAttrs(printer);
+
+  /* Now unset the LANG environment variable that was set above. */
+  unsetenv("LANG");
 
   if (need_restart_job && printer->job)
   {
