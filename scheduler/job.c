@@ -3308,6 +3308,20 @@ finalize_job(cupsd_job_t *job,		/* I - Job */
     * Do what needs to be done...
     */
 
+    /*
+     * The SSL certificate in the printer is expired. Change job from stopped
+     * to failed in order to propagate the error to the user.
+     */
+    int num_printer_reasons = ippGetCount(job->printer_reasons);
+    for (int i = 0; i < num_printer_reasons; ++i)
+    {
+      if (!strcmp(ippGetString(job->printer_reasons, i, NULL), "cups-pki-expired"))
+      {
+        cupsdLogJob(job, CUPSD_LOG_WARN, "Changing job from stopped to failed");
+        exit_code = CUPS_BACKEND_FAILED;
+      }
+    }
+
     switch (exit_code)
     {
       default :
