@@ -92,6 +92,12 @@ class PrintJob : public testing::Test {
     return *this;
   }
 
+  // Chainable function to add the IPP finishings attribute.
+  const PrintJob& Finishings(const std::string& value) const {
+    AddIppStrings("finishings", {value});
+    return *this;
+  }
+
   // Chainable function to add the IPP document-format-supported attribute.
   const PrintJob& DocumentFormats(
       const std::vector<std::string>& values) const {
@@ -176,6 +182,14 @@ class PrintJob : public testing::Test {
     return ret;
   }
 
+  // Return the value of the printer's IPP finishings-default attribute, or
+  // IPP_FINISHINGS_NONE if it doesn't exist.
+  int DefaultFinishings() const {
+    int ret = IPP_FINISHINGS_NONE;
+    DefaultFinishingsImpl(ret);
+    return ret;
+  }
+
   // Convert the IPP job attributes to print filter command-line arguments.
   // Clear the job attributes before returning the string of options.
   std::string Filter() const {
@@ -215,6 +229,16 @@ class PrintJob : public testing::Test {
     ASSERT_TRUE(res);
     ret = res;
     free(res);
+  }
+
+  void DefaultFinishingsImpl(int& ret) const {
+    ASSERT_TRUE(job_->printer);
+    ipp_attribute_t* attr = ippFindAttribute(
+        job_->printer->ppd_attrs, "finishings-default", IPP_TAG_ENUM);
+    if (!attr)
+      return;
+    ASSERT_EQ(1, attr->num_values);
+    ret = ippGetInteger(attr, 0);
   }
 
   void ResolutionImpl(int res_x, int res_y) const {
@@ -415,6 +439,83 @@ TEST_F(PrintJob, IppToPpd_PrintQuality_Normal) {
   EXPECT_FALSE(CheckOptionSupported("print-quality", "3"));
   EXPECT_TRUE(CheckOptionSupported("print-quality", "4"));
   EXPECT_FALSE(CheckOptionSupported("print-quality", "5"));
+}
+
+// Roll printing trim tests
+
+TEST_F(PrintJob, RollPrintingTrimEpson) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *TmxPaperCut/Paper Cut: PickOne
+*OrderDependency: 30 AnySetup *TmxPaperCut
+*DefaultTmxPaperCut: NoCut
+*TmxPaperCut NoCut/No cut: ""
+*TmxPaperCut CutPerJob/Cut per job: ""
+*TmxPaperCut CutPerPage/Cut per page: ""
+*CloseUI: *TmxPaperCut)");
+  EXPECT_TRUE(CheckOptionSupported("finishings", "3"));
+  EXPECT_TRUE(CheckOptionSupported("finishings", "11"));
+
+  EXPECT_EQ("TmxPaperCut=NoCut", Finishings("none").Filter());
+  EXPECT_EQ("TmxPaperCut=CutPerJob", Finishings("trim").Filter());
+  EXPECT_EQ(IPP_FINISHINGS_NONE, DefaultFinishings());
+}
+
+TEST_F(PrintJob, RollPrintingTrimStarPatialCut) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *DocCutType/2. Document Cut Type: PickOne
+*DefaultDocCutType: 1PartialCutDoc
+*DocCutType 0NoCutDoc/No Cut: ""
+*DocCutType 1PartialCutDoc/Partial Cut: ""
+*DocCutType 2FullCutDoc/Full Cut: ""
+*CloseUI: *DocCutType)");
+  EXPECT_TRUE(CheckOptionSupported("finishings", "3"));
+  EXPECT_TRUE(CheckOptionSupported("finishings", "11"));
+
+  EXPECT_EQ("DocCutType=0NoCutDoc", Finishings("none").Filter());
+  EXPECT_EQ("DocCutType=1PartialCutDoc", Finishings("trim").Filter());
+  EXPECT_EQ(IPP_FINISHINGS_TRIM, DefaultFinishings());
+}
+
+TEST_F(PrintJob, RollPrintingTrimStarOptionFullCut) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *DocCutType/2. Document Cut Type: PickOne
+*DefaultDocCutType: 0NoCutDoc
+*DocCutType 0NoCutDoc/No Cut: ""
+*DocCutType 2FullCutDoc/Full Cut: ""
+*CloseUI: *DocCutType)");
+  EXPECT_TRUE(CheckOptionSupported("finishings", "3"));
+  EXPECT_TRUE(CheckOptionSupported("finishings", "11"));
+
+  EXPECT_EQ("DocCutType=0NoCutDoc", Finishings("none").Filter());
+  EXPECT_EQ("DocCutType=2FullCutDoc", Finishings("trim").Filter());
+  EXPECT_EQ(IPP_FINISHINGS_NONE, DefaultFinishings());
+}
+
+TEST_F(PrintJob, RollPrintingTrimStarOneOption) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *DocCutType/2. Document Cut Type: PickOne
+*DefaultDocCutType: 2FullCutDoc
+*DocCutType 2FullCutDoc/Full Cut: ""
+*CloseUI: *DocCutType)");
+  // If the PPD only has a single choice, we don't support any finishings.
+  EXPECT_FALSE(CheckOptionSupported("finishings", "3"));
+  EXPECT_FALSE(CheckOptionSupported("finishings", "11"));
+}
+
+TEST_F(PrintJob, RollPrintingTrimCustom) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *CutterMode/Cutter Mode: PickOne
+*DefaultCutterMode: 4FullCutEndDoc
+*CutterMode 0NoCut/No cut: ""
+*CutterMode 2FullCutEndPage/Full Cut at Page End: ""
+*CutterMode 4FullCutEndDoc/Full Cut at Document End: ""
+*CloseUI: *CutterMode)");
+  EXPECT_TRUE(CheckOptionSupported("finishings", "3"));
+  EXPECT_TRUE(CheckOptionSupported("finishings", "11"));
+
+  EXPECT_EQ("CutterMode=0NoCut", Finishings("none").Filter());
+  EXPECT_EQ("CutterMode=4FullCutEndDoc", Finishings("trim").Filter());
+  EXPECT_EQ(IPP_FINISHINGS_TRIM, DefaultFinishings());
 }
 
 // PinPrint tests

@@ -55,7 +55,8 @@ static ipp_attribute_t	*_ippAddResolution(ipp_t *ipp, ipp_tag_t group,
 					   const char *name, _ipp_value_t  res);
 static void		add_resolution_mappings(ipp_t *mappings, ipp_t *ppd_attrs,
 						ppd_file_t *ppd, const char *printer_name);
-
+static int add_trim_finishings_mappings(ipp_t *mappings, ipp_t *ppd_attrs,
+                                        ppd_file_t *ppd);
 
 /*
  * 'cupsdAddPrinter()' - Add a printer to the system.
@@ -3887,6 +3888,7 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
   _ipp_value_t	*val;			/* Attribute value */
   int		num_finishings,		/* Number of finishings */
 		finishings[100];	/* finishings-supported values */
+  int finishings_created;  /* Used to track when finishings are created */
   int		num_qualities,		/* Number of print-quality values */
 		qualities[3];		/* print-quality values */
   int		num_margins,		/* Number of media-*-margin-supported values */
@@ -3965,6 +3967,7 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
 
   finishings[0]  = IPP_FINISHINGS_NONE;
   num_finishings = 1;
+  finishings_created = 0;
 
   p->ppd_attrs = ippNew();
 
@@ -4788,6 +4791,8 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     option_mappings = ippNew();
     add_job_password_mappings(option_mappings, p->ppd_attrs, ppd);
     add_resolution_mappings(option_mappings, p->ppd_attrs, ppd, p->name);
+    finishings_created = add_trim_finishings_mappings(
+        option_mappings, p->ppd_attrs, ppd);
     ippAddCollection(p->ppd_attrs, IPP_TAG_PRINTER, "option-mappings",
                      option_mappings);
     ippDelete(option_mappings);
@@ -4986,10 +4991,12 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     }
   }
 
-  ippAddIntegers(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
-		 "finishings-supported", num_finishings, finishings);
-  ippAddInteger(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
-		"finishings-default", IPP_FINISHINGS_NONE);
+  if (!finishings_created) {
+    ippAddIntegers(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
+      "finishings-supported", num_finishings, finishings);
+    ippAddInteger(p->ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
+      "finishings-default", IPP_FINISHINGS_NONE);
+  }
 
   if (ppd && p->pc)
   {
@@ -5497,4 +5504,98 @@ add_resolution_mappings(
 		    "printer-resolution-supported", res);
   _ippAddResolution(ppd_attrs, IPP_TAG_PRINTER,
 		    "pwg-raster-document-resolution-supported", res);
+}
+
+/*
+ * 'add_trim_finishings_mappings' - Looks for PPD-specific paper cut options,
+ * and if found, creates a mapping between the IPP finishings attribute and the
+ * equivalent PPD options.  This mapping can be used at print time to replace
+ * the IPP attribute with the PPD-specific option.
+ *
+ * The chrome.printing API only supports specific finishings options.  If more
+ * options are added in the API they also need to be added here so they can be
+ * mapped to a PPD-specific option.
+ *
+ * If this method updates finishings_supported, return 1, else return 0.
+ */
+static int add_trim_finishings_mappings(
+    ipp_t *mappings,  /* IO - Collection to add option mappinngs to */
+    ipp_t *ppd_attrs, /* IO - IPP attributes for printer */
+    ppd_file_t *ppd)  /* I  - Printer PPD */ {
+  ppd_option_t* option = NULL;
+  ppd_choice_t* choice_trim = NULL;
+  ppd_choice_t* choice_none = NULL;
+
+  // Epson
+  if ((option = ppdFindOption(ppd, "TmxPaperCut")) != NULL) {
+    choice_trim = ppdFindChoice(option, "CutPerJob");
+    choice_none = ppdFindChoice(option, "NoCut");
+  }
+  // Star
+  else if ((option = ppdFindOption(ppd, "DocCutType")) != NULL) {
+    // Prefer partial cut if it exists.  If not, look for full cut.  Not all
+    // Star PPDs have the same nomenclature, so check a few options here.
+    if ((choice_trim = ppdFindChoice(option, "1PartialCutDoc")) == NULL) {
+      if ((choice_trim = ppdFindChoice(option, "2FullCutDoc")) == NULL) {
+        if ((choice_trim = ppdFindChoice(option, "1CutDoc")) == NULL) {
+          choice_trim = ppdFindChoice(option, "4FullCutAllPages");
+        }
+      }
+    }
+    choice_none = ppdFindChoice(option, "0NoCutDoc");
+  }
+  // Custom (the manufacturer, not a custom option)
+  else if ((option = ppdFindOption(ppd, "CutterMode")) != NULL) {
+    // Prefer partial cut if it exists.  If not, look for full cut.
+    if ((choice_trim = ppdFindChoice(option, "3PartialCutEndDoc")) == NULL) {
+      choice_trim = ppdFindChoice(option, "4FullCutEndDoc");
+    }
+    choice_none = ppdFindChoice(option, "0NoCut");
+  }
+
+  // No trim-specific options were found in the PPD file.
+  if (!choice_trim && !choice_none) {
+    return 0;
+  }
+
+  // If we only have one choice we don't provide any finishings-supported
+  // options since that single choice will always be used.  However, we still
+  // return 1 to signal to the caller that it should not create
+  // finishings-supported.
+  if ((choice_trim || choice_none) && !(choice_trim && choice_none)) {
+    return 1;
+  }
+
+  // If we detected valid PPD options, update our mapping.  Create a new IPP
+  // attribute to store the IPP to PPD mappings.
+  ipp_t* trim_attr = ippNew();
+  ippAddString(trim_attr, IPP_TAG_ZERO, IPP_TAG_TEXT, option->keyword,
+               NULL, "%s");
+
+  // Create the mapping from IPP value to PPD value.
+  ipp_t* value_mapping = ippNew();
+  ippAddString(value_mapping, IPP_TAG_ZERO, IPP_TAG_KEYWORD, "trim", NULL,
+               choice_trim->choice);
+  ippAddString(value_mapping, IPP_TAG_ZERO, IPP_TAG_KEYWORD, "none", NULL,
+               choice_none->choice);
+
+  ippAddCollection(trim_attr, IPP_TAG_ZERO, "_mapping", value_mapping);
+  ippAddCollection(mappings, IPP_TAG_ZERO, "finishings", trim_attr);
+
+  ippDelete(trim_attr);
+  ippDelete(value_mapping);
+
+  // Update the supported and default finishings.
+  static const int	num_finishings = 2;
+  static const int finishings[num_finishings] = {
+    IPP_FINISHINGS_NONE,
+    IPP_FINISHINGS_TRIM
+  };
+  ippAddIntegers(ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
+                 "finishings-supported", num_finishings, finishings);
+
+  ippAddInteger(ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM, "finishings-default",
+                choice_trim->marked ? IPP_FINISHINGS_TRIM : IPP_FINISHINGS_NONE);
+
+  return 1;
 }
