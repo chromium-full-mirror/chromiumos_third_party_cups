@@ -2814,7 +2814,7 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
    * localized strings for that printer's options in whatever it thinks the "default" language
    * is. In order to get human-readable names for non-standard media types, CUPS needs to know
    * the user's language when setting up the printer. But since language in CrOS is a Chromium
-   * preference, CUPS doesn't know about it normally. Setting the LANG environment variable
+   * preference, CUPS doesn't know about it normally. Setting a language environment variable
    * here to the value of the request's "attributes-natural-language" will change the language
    * returned by cupsLangDefault(), meaning that cupsd will set the "attributes-natural-language"
    * attribute to that language when sending requests to IPP printers, and the PPD cache
@@ -2826,13 +2826,13 @@ add_printer(cupsd_client_t  *con,	/* I - Client connection */
   if (natural_language && *natural_language && !strchr(natural_language, '='))
   {
     cupsdLogMessage(CUPSD_LOG_NOTICE, "Adding printer with language %s", natural_language);
-    setenv("LANG", natural_language, 1);
+    setenv("CROS_CUPS_LANGUAGE", natural_language, 1);
   }
 
   cupsdSetPrinterAttrs(printer);
 
-  /* Now unset the LANG environment variable that was set above. */
-  unsetenv("LANG");
+  /* Now unset the environment variable that was set above. */
+  unsetenv("CROS_CUPS_LANGUAGE");
 
   if (need_restart_job && printer->job)
   {

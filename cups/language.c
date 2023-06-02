@@ -578,10 +578,11 @@ cupsLangGet(const char *language)	/* I - Language or locale */
       * Get the locale for messages from the LC_MESSAGES locale setting...
       */
 
-      if ((ptr = getenv("LC_MESSAGES")) == NULL)
-        if ((ptr = getenv("LC_ALL")) == NULL)
-	  if ((ptr = getenv("LANG")) == NULL)
-	    ptr = "en_US";
+      if ((ptr = getenv("CROS_CUPS_LANGUAGE")) == NULL)
+        if ((ptr = getenv("LC_MESSAGES")) == NULL)
+          if ((ptr = getenv("LC_ALL")) == NULL)
+            if ((ptr = getenv("LANG")) == NULL)
+              ptr = "en_US";
     }
 
     if (ptr)
