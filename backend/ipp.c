@@ -2208,14 +2208,27 @@ main(int  argc,				/* I - Number of command-line args */
 		    job_sheets->values[0].integer);
 
 	 /*
-	  * Stop polling if the job is finished, pending-held or
-	  * the printer has printer-is-accepting-jobs attribute set to true ...
+          * Stop polling if the job is finished or pending-held...
 	  */
 
-          if (job_state->values[0].integer > IPP_JSTATE_STOPPED ||
-	      job_state->values[0].integer == IPP_JSTATE_HELD ||
-	      printer_is_accepting_jobs)
+          if (job_state->values[0].integer > IPP_JSTATE_STOPPED || job_state->values[0].integer == IPP_JSTATE_HELD)
 	  {
+	    ippDelete(response);
+	    break;
+	  }
+
+	 /*
+	  * If the printer is on a remote print server, stop monitoring the
+	  * job as soon as the printer is accepting jobs because we assume that
+	  * the print server can spool jobs.  Detect printers attached to a
+	  * print server by looking for /printers/ in the URI because this
+	  * string is always added from the Chrome side.
+	  */
+	 if (printer_is_accepting_jobs && strstr(uri, "/printers/") != NULL)
+	  {
+	    fprintf(stderr,
+                    "DEBUG: Stopping monitor because remote printer "
+                    "is accepting jobs.\n");
 	    ippDelete(response);
 	    break;
 	  }
