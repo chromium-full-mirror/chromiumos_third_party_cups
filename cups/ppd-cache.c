@@ -1,7 +1,7 @@
 /*
  * PPD cache implementation for CUPS.
  *
- * Copyright © 2021-2022 by OpenPrinting.
+ * Copyright © 2021-2023 by OpenPrinting.
  * Copyright © 2010-2021 by Apple Inc.
  *
  * Licensed under Apache License v2.0.  See the file "LICENSE" for more
@@ -286,20 +286,52 @@ _cupsConvertOptions(
 
   color_attr_name = print_color_mode_sup ? "print-color-mode" : "output-mode";
 
-  if ((keyword = cupsGetOption("print-color-mode", num_options, options)) == NULL)
+ /*
+  * If we use PPD with standardized PPD option for color support - ColorModel,
+  * prefer it to don't break color/grayscale support for PPDs, either classic
+  * or the ones generated from IPP Get-Printer-Attributes response.
+  */
+
+  if ((keyword = cupsGetOption("ColorModel", num_options, options)) == NULL)
   {
+   /*
+    * No ColorModel in options...
+    */
+
     if ((choice = ppdFindMarkedChoice(ppd, "ColorModel")) != NULL)
     {
+     /*
+      * ColorModel is taken from PPD as its default option.
+      */
       // Detect non-standard Grays.  Be sure to keep in sync with other
       // ColorModel parsing.
       if (!_cups_strcasecmp(choice->choice, "Gray") ||
+          !_cups_strcasecmp(choice->choice, "FastGray") ||
+	  !_cups_strcasecmp(choice->choice, "DeviceGray") ||
           !_cups_strcasecmp(choice->choice, "KGray") ||
           !_cups_strcasecmp(choice->choice, "CMYGray") ||
           !_cups_strcasecmp(choice->choice, "Grayscale"))
 	keyword = "monochrome";
       else
-	keyword = "color";
+        keyword = "color";
     }
+    else
+     /*
+      * print-color-mode is a default option since 2.4.1, use it as a fallback if there is no
+      * ColorModel in options or PPD...
+      */
+      keyword = cupsGetOption("print-color-mode", num_options, options);
+  }
+  else
+  {
+   /*
+    * ColorModel found in options...
+    */
+
+    if (!strcmp(keyword, "Gray") || !strcmp(keyword, "FastGray") || !strcmp(keyword, "DeviceGray"))
+      keyword = "monochrome";
+    else
+      keyword = "color";
   }
 
   if (keyword && !strcmp(keyword, "monochrome"))
@@ -1711,7 +1743,7 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
 
 	  num_options = pc->num_presets[_PWG_PRINT_COLOR_MODE_COLOR]
 					[pwg_print_quality];
-	  options     = calloc(sizeof(cups_option_t), (size_t)num_options);
+	  options     = calloc((size_t)num_options, sizeof(cups_option_t));
 
 	  if (options)
 	  {
@@ -3403,20 +3435,20 @@ _ppdCreateFromIPP2(
 	{
 	  keyword = ippGetString(lang_supp, i, NULL);
 
-          request = ippNew();
-          ippSetOperation(request, IPP_OP_GET_PRINTER_ATTRIBUTES);
-          ippSetRequestId(request, i + 1);
-          ippAddString(request, IPP_TAG_OPERATION, IPP_CONST_TAG(IPP_TAG_CHARSET), "attributes-charset", NULL, "utf-8");
-          ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE, "attributes-natural-language", NULL, keyword);
-          ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, printer_uri);
-          ippAddString(request, IPP_TAG_OPERATION, IPP_CONST_TAG(IPP_TAG_KEYWORD), "requested-attributes", NULL, "printer-strings-uri");
+	  request = ippNew();
+	  ippSetOperation(request, IPP_OP_GET_PRINTER_ATTRIBUTES);
+	  ippSetRequestId(request, i + 1);
+	  ippAddString(request, IPP_TAG_OPERATION, IPP_CONST_TAG(IPP_TAG_CHARSET), "attributes-charset", NULL, "utf-8");
+	  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_LANGUAGE, "attributes-natural-language", NULL, keyword);
+	  ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL, printer_uri);
+	  ippAddString(request, IPP_TAG_OPERATION, IPP_CONST_TAG(IPP_TAG_KEYWORD), "requested-attributes", NULL, "printer-strings-uri");
 
-          response = cupsDoRequest(http, request, resource);
+	  response = cupsDoRequest(http, request, resource);
 
-          if ((attr = ippFindAttribute(response, "printer-strings-uri", IPP_TAG_URI)) != NULL)
-          {
+	  if ((attr = ippFindAttribute(response, "printer-strings-uri", IPP_TAG_URI)) != NULL)
 	    cupsFilePrintf(fp, "*cupsStringsURI %s: \"%s\"\n", keyword, ippGetString(attr, 0, NULL));
-          }
+
+	  ippDelete(response);
 	}
       }
     }
@@ -4257,7 +4289,8 @@ _ppdCreateFromIPP2(
     int wrote_color = 0;
     const char *default_color = NULL;	/* Default */
 
-    if ((keyword = ippGetString(defattr, 0, NULL)) != NULL)
+    if ((keyword = ippGetString(defattr, 0, NULL)) != NULL &&
+	strcmp(keyword, "auto"))
     {
       if (!strcmp(keyword, "bi-level"))
         default_color = "FastGray";
@@ -4308,7 +4341,7 @@ _ppdCreateFromIPP2(
 
 	PRINTF_COLOROPTION("Gray16", _("Deep Gray"), CUPS_CSPACE_SW, 16)
       }
-      else if (!strcasecmp(keyword, "srgb_8") || !strncmp(keyword, "SRGB24", 7) || !strcmp(keyword, "color"))
+      else if (!strcasecmp(keyword, "srgb_8") || !strncmp(keyword, "SRGB24", 6) || !strcmp(keyword, "color"))
       {
 	PRINTF_COLORMODEL
 
@@ -5156,10 +5189,22 @@ _ppdCreateFromIPP2(
   }
 
  /*
+  * Add cupsSingleFile to support multiple files printing on printers
+  * which don't support multiple files in its firmware...
+  *
+  * Adding the keyword degrades printing performance (there is 1-2 seconds
+  * pause between files).
+  */
+
+  cupsFilePuts(fp, "*cupsSingleFile: true\n");
+
+ /*
   * Close up and return...
   */
 
   cupsFileClose(fp);
+
+  _cupsMessageFree(strings);
 
   RETURN_OK(buffer);
 
@@ -5172,6 +5217,8 @@ _ppdCreateFromIPP2(
   cupsFileClose(fp);
   unlink(buffer);
   *buffer = '\0';
+
+  _cupsMessageFree(strings);
 
   _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Printer does not support required IPP attributes or document formats."), 1);
   RETURN_FAIL_IPP_ATTRIBUTE(NULL);

@@ -1,7 +1,8 @@
 /*
  * PWG media name API implementation for CUPS.
  *
- * Copyright 2009-2019 by Apple Inc.
+ * Copyright © 2023 by OpenPrinting.
+ * Copyright © 2009-2019 by Apple Inc.
  *
  * Licensed under Apache License v2.0.  See the file "LICENSE" for more
  * information.
@@ -1098,8 +1099,7 @@ pwg_format_inches(char   *buf,		/* I - Buffer */
                   size_t bufsize,	/* I - Size of buffer */
                   int    val)		/* I - Value in hundredths of millimeters */
 {
-  int	thousandths,			/* Thousandths of inches */
-	integer,			/* Integer portion */
+  int	integer,			/* Integer portion */
 	fraction;			/* Fractional portion */
 
 
@@ -1108,9 +1108,13 @@ pwg_format_inches(char   *buf,		/* I - Buffer */
   * the nearest thousandth.
   */
 
-  thousandths = (val * 1000 + 1270) / 2540;
-  integer     = thousandths / 1000;
-  fraction    = thousandths % 1000;
+  integer  = val / 2540;
+  fraction = ((val % 2540) * 1000 + 1270) / 2540;
+  if (fraction >= 1000)
+  {
+    integer ++;
+    fraction -= 1000;
+  }
 
  /*
   * Format as a pair of integers (avoids locale stuff), avoiding trailing
