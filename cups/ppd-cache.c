@@ -4347,8 +4347,7 @@ _ppdCreateFromIPP2(
 
 	PRINTF_COLOROPTION("RGB", _("Color"), CUPS_CSPACE_SRGB, 8)
 
-        if (!default_color)
-	  default_color = "RGB";
+	default_color = "RGB";
 
         // Apparently some printers only advertise color support, so make sure
         // we also do grayscale for these printers...
