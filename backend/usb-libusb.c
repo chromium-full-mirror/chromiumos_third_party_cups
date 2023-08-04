@@ -1838,8 +1838,7 @@ static void *read_thread(void *reference)
     * Make sure this loop executes no more than once every 250 milliseconds...
     */
 
-    if ((readstatus != LIBUSB_SUCCESS || rbytes == 0) &&
-	 (g.wait_eof || !g.read_thread_stop))
+    if ((g.wait_eof || !g.read_thread_stop))
       usleep(250000);
   }
   while (g.wait_eof || !g.read_thread_stop);
