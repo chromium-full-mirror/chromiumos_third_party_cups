@@ -1345,9 +1345,6 @@ cupsdLoadAllPrinters(void)
   if (found_raw)
     cupsdLogMessage(CUPSD_LOG_WARN, "Raw queues are deprecated and will stop working in a future version of CUPS. See https://github.com/OpenPrinting/cups/issues/103");
 
-  if (found_driver)
-    cupsdLogMessage(CUPSD_LOG_WARN, "Printer drivers are deprecated and will stop working in a future version of CUPS. See https://github.com/OpenPrinting/cups/issues/103");
-
   cupsFileClose(fp);
 }
 
