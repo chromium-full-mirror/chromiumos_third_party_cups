@@ -1177,6 +1177,61 @@ enable_printer(http_t *http,		/* I - Server connection */
 
 
 /*
+ * 'get_closest_language()' - Get the language supported by the printer that is closest to the user's locale.
+ *
+ * The lifetime of the returned string is equal to that of the "languages" parameter.
+ */
+
+static const char *					/* O  - the closest supported language */
+get_closest_language(ipp_attribute_t *languages)	/* I  - list of supported languages */
+{
+  const char *desired_language = cupsLangDefault()->language;
+  const char *closest = NULL;
+  int closest_distance = 9999;
+  int language_count = ippGetCount(languages);
+
+  for (int i = 0; i < language_count; i++)
+  {
+    const char *language = ippGetString(languages, i, NULL);
+    int distance = 9999;
+    if (!_cups_strcasecmp(language, desired_language))
+    {
+      // same string
+      distance = 0;
+    }
+    else if (!_cups_strncasecmp(language, desired_language, 2))
+    {
+      if (strlen(language) > 3 && strlen(desired_language) > 3 &&
+          !_cups_strcasecmp(language + 3, desired_language + 3))
+      {
+        // identical aside from hyphen/underscore or caps (en-us/en_US)
+        distance = 0;
+      }
+      else
+      {
+        // same language, different country code (en-us/en-gb or es/es-mx)
+        distance = 1;
+      }
+    }
+    else
+    {
+      // completely different languages
+      // fall back on English if there's no match for the user's language
+      distance = _cups_strncasecmp(language, "en", 2) ? 3 : 2;
+    }
+
+    if (distance < closest_distance)
+    {
+      closest_distance = distance;
+      closest = language;
+    }
+  }
+
+  return closest;
+}
+
+
+/*
  * 'get_printer_ppd()' - Get an IPP Everywhere PPD file for the given URI.
  */
 
@@ -1370,6 +1425,47 @@ get_printer_ppd(
        ippDelete(db);
      }
   }
+
+  // Try to ensure printer-strings-uri is present if possible, and in the closest possible
+  // language to the user's.
+  const char *closest_language = NULL;
+  if ((attr = ippFindAttribute(response, "printer-strings-languages-supported", IPP_TAG_LANGUAGE)))
+  {
+    // find the closest language in printer-strings-languages-supported
+    closest_language = get_closest_language(attr);
+  }
+  else if ((attr = ippFindAttribute(response, "generated-natural-language-supported", IPP_TAG_LANGUAGE)))
+  {
+    // if that attribute doesn't exist, find the closest language in generated-natural-language-supported
+    closest_language = get_closest_language(attr);
+  }
+
+  // check whether natural-language-configured is already the closest language
+  if (closest_language && (attr = ippFindAttribute(response, "natural-language-configured", IPP_TAG_LANGUAGE)) &&
+      _cups_strcasecmp(closest_language, ippGetString(attr, 0, NULL)))
+  {
+    // if the closest language isn't already the configured language, resend the request
+    setenv("CROS_CUPS_LANGUAGE", closest_language, 1);
+    _cupsLangPrintf(stderr, _("%s: re-requesting printer strings with language %s"), "lpadmin", closest_language);
+    ipp_t *request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
+                  use_ippusb ? ippusb_uri : uri);
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_KEYWORD,
+                  "requested-attributes", NULL, "printer-strings-uri");
+    ipp_t *strings_response = cupsDoRequest(http, request, resource);
+    if (strings_response)
+    {
+      if ((attr = ippFindAttribute(strings_response, "printer-strings-uri", IPP_TAG_URI)))
+      {
+        // replace the old printer-strings-uri attribute with the new one
+        _cupsLangPrintf(stderr, _("%s: request successful, replacing printer-strings-uri attribute"), "lpadmin");
+        ippDeleteAttribute(response, ippFindAttribute(response, "printer-strings-uri", IPP_TAG_ZERO));
+        ippCopyAttribute(response, attr, 0);
+      }
+      ippDelete(strings_response);
+    }
+  }
+
   if (_ppdCreateFromIPP(buffer, bufsize, response))
   {
     if (!cupsGetOption("printer-geo-location", *num_options, *options) && (attr = ippFindAttribute(response, "printer-geo-location", IPP_TAG_URI)) != NULL)
