@@ -17,6 +17,7 @@
 #include "ppd-cache-private.h"
 #include "ppd-private.h"
 #include "debug-internal.h"
+#include "ippusb-private.h"
 #include <math.h>
 
 
@@ -5427,6 +5428,21 @@ cups_connect(http_t     **http,		/* IO - Current HTTP connection */
   // Separate the URI...
   if (httpSeparateURI(HTTP_URI_CODING_ALL, url, scheme, sizeof(scheme), userpass, sizeof(userpass), host, sizeof(host), &port, resource, ressize) < HTTP_URI_STATUS_OK)
     return (0);
+
+  // If the scheme is ippusb then we replace the hostname with a socket
+  // in /run/ippusb.
+  if (!strcmp(scheme, "ippusb")) {
+    char* socket = ippusb_host_to_socket_name(host);
+    if (socket == NULL)
+      return (0);
+
+    int ret = snprintf(host, sizeof(host), "/run/ippusb/%s", socket);
+    free(socket);
+    if (ret < 0 || ret >= sizeof(host)) {
+      fprintf(stderr, "ERROR: Failed to overwrite hostname");
+      return (0);
+    }
+  }
 
   // Use encryption as needed..
   if (port == 443 || !strcmp(scheme, "https") || !strcmp(scheme, "ipps"))

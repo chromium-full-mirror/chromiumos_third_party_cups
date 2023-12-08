@@ -1231,6 +1231,56 @@ get_closest_language(ipp_attribute_t *languages)	/* I  - list of supported langu
 }
 
 
+// Constructs an ippusb:// URL with the hostname of `uri_from_hostname` and the
+// resource path of `uri_with_resource`. For example:
+//    uri_with_hostname: ipp://03f0_0d74/ipp/print
+//    uri_with_resource: http://localhost:60000/en.strings
+//    -> result_uri: ippusb://03f0_0d74/en.strings
+// This function can be removed when we move away from domain sockets for IPP-USB.
+int url_to_ippusb_host(const char *uri_with_hostname, const char* uri_with_resource,
+                       char* result_uri, size_t uri_buffer_size) {
+  char hostname[1024],
+       resource[1024],
+       scheme_unused[256],
+       hostname_unused[1024],
+       username_unused[256],
+       resource_unused[1024];
+  int port_unused;
+  http_uri_status_t result;
+  int result_size;
+
+  result = httpSeparateURI(HTTP_URI_CODING_ALL, uri_with_hostname,
+                  scheme_unused, sizeof(scheme_unused),
+                  username_unused, sizeof(username_unused),
+                  hostname, sizeof(hostname),
+                  &port_unused,
+                  resource_unused, sizeof(resource_unused));
+  if (result != HTTP_URI_STATUS_OK) {
+    _cupsLangPrintf(stderr, _("Failed to decode URI \"%s\""), uri_with_hostname);
+    return 0;
+  }
+
+  result = httpSeparateURI(HTTP_URI_CODING_ALL, uri_with_resource,
+                  scheme_unused, sizeof(scheme_unused),
+                  username_unused, sizeof(username_unused),
+                  hostname_unused, sizeof(hostname_unused),
+                  &port_unused,
+                  resource, sizeof(resource));
+  if (result != HTTP_URI_STATUS_OK) {
+    _cupsLangPrintf(stderr, _("Failed to decode URI \"%s\""), uri_with_resource);
+    return 0;
+  }
+
+  result_size = snprintf(result_uri, uri_buffer_size, "ippusb://%s%s", hostname, resource);
+  if (result_size < 0 || result_size >= uri_buffer_size) {
+    _cupsLangPrintf(stderr, _("Failed to encode URI with new scheme and hostname"));
+    return 0;
+  }
+
+  return 1;
+}
+
+
 /*
  * 'get_printer_ppd()' - Get an IPP Everywhere PPD file for the given URI.
  */
@@ -1441,12 +1491,15 @@ get_printer_ppd(
   }
 
   // check whether natural-language-configured is already the closest language
-  if (closest_language && (attr = ippFindAttribute(response, "natural-language-configured", IPP_TAG_LANGUAGE)) &&
-      _cups_strcasecmp(closest_language, ippGetString(attr, 0, NULL)))
+  if (use_ippusb ||
+      (closest_language && (attr = ippFindAttribute(response, "natural-language-configured", IPP_TAG_LANGUAGE)) &&
+      _cups_strcasecmp(closest_language, ippGetString(attr, 0, NULL))))
   {
     // if the closest language isn't already the configured language, resend the request
-    setenv("CROS_CUPS_LANGUAGE", closest_language, 1);
-    _cupsLangPrintf(stderr, _("%s: re-requesting printer strings with language %s"), "lpadmin", closest_language);
+    if (closest_language) {
+      setenv("CROS_CUPS_LANGUAGE", closest_language, 1);
+      _cupsLangPrintf(stderr, _("%s: re-requesting printer strings with language %s"), "lpadmin", closest_language);
+    }
     ipp_t *request = ippNewRequest(IPP_OP_GET_PRINTER_ATTRIBUTES);
     ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_URI, "printer-uri", NULL,
                   use_ippusb ? ippusb_uri : uri);
@@ -1461,6 +1514,13 @@ get_printer_ppd(
         _cupsLangPrintf(stderr, _("%s: request successful, replacing printer-strings-uri attribute"), "lpadmin");
         ippDeleteAttribute(response, ippFindAttribute(response, "printer-strings-uri", IPP_TAG_ZERO));
         ippCopyAttribute(response, attr, 0);
+        if (use_ippusb) {
+          char ippusb_strings_uri[1024];
+          attr = ippFindAttribute(response, "printer-strings-uri", IPP_TAG_ZERO);
+          if (url_to_ippusb_host(ippusb_uri, ippGetString(attr, 0, NULL), ippusb_strings_uri, sizeof(ippusb_strings_uri))) {
+            ippSetString(response, &attr, 0, ippusb_strings_uri);
+          }
+        }
       }
       ippDelete(strings_response);
     }

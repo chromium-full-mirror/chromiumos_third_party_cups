@@ -1058,7 +1058,7 @@ httpSeparateURI(
     *port = 515;
   else if (!strcmp(scheme, "socket"))	/* Not yet registered with IANA... */
     *port = 9100;
-  else if (strcmp(scheme, "file") && strcmp(scheme, "mailto") && strcmp(scheme, "tel"))
+  else if (strcmp(scheme, "file") && strcmp(scheme, "mailto") && strcmp(scheme, "tel") && strcmp(scheme, "ippusb"))
     status = HTTP_URI_STATUS_UNKNOWN_SCHEME;
 
  /*
