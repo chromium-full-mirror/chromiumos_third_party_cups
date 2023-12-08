@@ -7,6 +7,7 @@ extern "C" {
 }
 
 #include <string>
+#include <string_view>
 #include <vector>
 #include <cups/ipp.h>
 
@@ -343,12 +344,12 @@ std::string ResOpt(std::string res_value) {
 }
 
 std::vector<std::string> GetClientInfoMemberOptions(
-    base::StringPiece client_info_option) {
+    std::string_view client_info_option) {
   EXPECT_GE(client_info_option.size(), 2u);
   EXPECT_EQ(client_info_option.front(), '{');
   EXPECT_EQ(client_info_option.back(), '}');
 
-  base::StringPiece option_without_braces(client_info_option);
+  std::string_view option_without_braces(client_info_option);
   option_without_braces.remove_prefix(1);
   option_without_braces.remove_suffix(1);
 
@@ -694,7 +695,7 @@ TEST_F(PrintJob, IppClientInfoToOptionMapping) {
   ASSERT_THAT(opt_string, testing::StartsWith("client-info="));
 
   std::vector<std::string> values =
-      base::SplitString(base::StringPiece(opt_string.data() + 12), ",",
+      base::SplitString(std::string_view(opt_string.data() + 12), ",",
                         base::TRIM_WHITESPACE, base::SPLIT_WANT_NONEMPTY);
   ASSERT_EQ(values.size(), 2);
   EXPECT_THAT(
@@ -719,11 +720,11 @@ TEST_F(PrintJob, IppClientInfoWithOtherOptions) {
                                .Filter();
   size_t client_info_end_pos = opt_string.find('}');
   ASSERT_NE(client_info_end_pos, std::string::npos);
-  const base::StringPiece client_info_opt(opt_string.data(),
+  const std::string_view client_info_opt(opt_string.data(),
                                           client_info_end_pos + 1);
   ASSERT_THAT(client_info_opt, testing::StartsWith("client-info="));
 
-  const base::StringPiece client_info_opt_value = client_info_opt.substr(12);
+  const std::string_view client_info_opt_value = client_info_opt.substr(12);
   EXPECT_THAT(
       GetClientInfoMemberOptions(client_info_opt_value),
       testing::UnorderedElementsAre(
@@ -733,7 +734,7 @@ TEST_F(PrintJob, IppClientInfoWithOtherOptions) {
   size_t job_password_start_pos =
       opt_string.find("job-password", client_info_end_pos);
   ASSERT_NE(job_password_start_pos, std::string::npos);
-  const base::StringPiece job_password_opt(opt_string.data() +
+  const std::string_view job_password_opt(opt_string.data() +
                                            job_password_start_pos);
   EXPECT_EQ(job_password_opt, "job-password=1234");
 }
