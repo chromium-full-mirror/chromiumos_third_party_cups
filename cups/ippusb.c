@@ -121,6 +121,7 @@ int wait_for_socket(const char* filename, long timeout) {
 
   int ret;
   while ((ret = connect(fd, (struct sockaddr*) &addr, sizeof(addr))) < 0) {
+    int errsv = errno;
     struct timespec current;
     if (clock_gettime(CLOCK_MONOTONIC, &current) < 0) {
       _cupsLangPrintf(stderr, _("Failed to get clock time"));
@@ -129,7 +130,9 @@ int wait_for_socket(const char* filename, long timeout) {
     }
 
     if (current.tv_sec - start.tv_sec >= timeout) {
-      _cupsLangPrintf(stderr, _("Timed out waiting for socket %s, last error %d"), filename, ret);
+      _cupsLangPrintf(stderr,
+                      _("Timed out waiting for socket %s, last error %d"),
+                      filename, errsv);
       close(fd);
       RETURN_FAIL_DESTINATION_UNREACHABLE(ret);
     }
