@@ -6,8 +6,10 @@ extern "C" {
 #include "cupsd.h"
 }
 
+#include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 #include <cups/ipp.h>
 
@@ -28,14 +30,14 @@ const base::FilePath kPpdPath =
 struct ClientInfo {
   std::string name;
   std::string str_version;
-  absl::optional<std::string> version;
-  absl::optional<std::string> patches;
+  std::optional<std::string> version;
+  std::optional<std::string> patches;
   int type;
 };
 
 class PrintJob : public testing::Test {
  public:
-  PrintJob() : job_(cupsdAddJob(0, "")){};
+  PrintJob() : job_(cupsdAddJob(0, "")) {}
 
   ~PrintJob() {
     if (job_) {
@@ -689,8 +691,8 @@ TEST_F(PrintJob, IppClientInfoToOptionMapping) {
   SetPrinter("*PPD-Adobe: 4.3");
   EXPECT_TRUE(Filter().empty());
   std::string opt_string =
-      ClientInfos({{"a", "b", "c", "d", 3},
-                   {"d", "c", absl::nullopt, absl::nullopt, 4}})
+      ClientInfos(
+          {{"a", "b", "c", "d", 3}, {"d", "c", std::nullopt, std::nullopt, 4}})
           .Filter();
   ASSERT_THAT(opt_string, testing::StartsWith("client-info="));
 
@@ -721,7 +723,7 @@ TEST_F(PrintJob, IppClientInfoWithOtherOptions) {
   size_t client_info_end_pos = opt_string.find('}');
   ASSERT_NE(client_info_end_pos, std::string::npos);
   const std::string_view client_info_opt(opt_string.data(),
-                                          client_info_end_pos + 1);
+                                         client_info_end_pos + 1);
   ASSERT_THAT(client_info_opt, testing::StartsWith("client-info="));
 
   const std::string_view client_info_opt_value = client_info_opt.substr(12);
@@ -735,6 +737,6 @@ TEST_F(PrintJob, IppClientInfoWithOtherOptions) {
       opt_string.find("job-password", client_info_end_pos);
   ASSERT_NE(job_password_start_pos, std::string::npos);
   const std::string_view job_password_opt(opt_string.data() +
-                                           job_password_start_pos);
+                                          job_password_start_pos);
   EXPECT_EQ(job_password_opt, "job-password=1234");
 }
