@@ -5727,7 +5727,9 @@ static int add_trim_finishings_mappings(
   else if ((option = ppdFindOption(ppd, "CutterMode")) != NULL) {
     // Prefer partial cut if it exists.  If not, look for full cut.
     if ((choice_trim = ppdFindChoice(option, "3PartialCutEndDoc")) == NULL) {
-      choice_trim = ppdFindChoice(option, "4FullCutEndDoc");
+      if ((choice_trim = ppdFindChoice(option, "4FullCutEndDoc")) == NULL) {
+        choice_trim = ppdFindChoice(option, "2FullCutEndDoc");
+      }
     }
     choice_none = ppdFindChoice(option, "0NoCut");
   }
