@@ -5719,6 +5719,10 @@ static int add_trim_finishings_mappings(
     }
     choice_none = ppdFindChoice(option, "0NoCutDoc");
   }
+  // Star Presenter Series
+  else if ((option = ppdFindOption(ppd, "CutType")) != NULL) {
+    choice_trim = ppdFindChoice(option, "0FullCutAllPages");
+  }
   // Custom (the manufacturer, not a custom option)
   else if ((option = ppdFindOption(ppd, "CutterMode")) != NULL) {
     // Prefer partial cut if it exists.  If not, look for full cut.
