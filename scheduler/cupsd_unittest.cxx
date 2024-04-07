@@ -521,6 +521,21 @@ TEST_F(PrintJob, RollPrintingTrimCustom) {
   EXPECT_EQ(IPP_FINISHINGS_TRIM, DefaultFinishings());
 }
 
+TEST_F(PrintJob, RollPrintingTrimHwasung) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *CutterMode/Cutter Mode (Page/Job): PickOne
+*DefaultCutterMode: 3PartialPartial
+*CutterMode 0NoNo/No Cut / No Cut: ""
+*CutterMode 1NoPartial/No Cut / Partial Cut: ""
+*CloseUI: *CutterMode)");
+  EXPECT_TRUE(CheckOptionSupported("finishings", "3"));
+  EXPECT_TRUE(CheckOptionSupported("finishings", "11"));
+
+  EXPECT_EQ("CutterMode=0NoNo", Finishings("none").Filter());
+  EXPECT_EQ("CutterMode=1NoPartial", Finishings("trim").Filter());
+  EXPECT_EQ(IPP_FINISHINGS_NONE, DefaultFinishings());
+}
+
 // PinPrint tests
 
 TEST_F(PrintJob, PinPrint_HP) {

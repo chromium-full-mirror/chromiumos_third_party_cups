@@ -5723,15 +5723,23 @@ static int add_trim_finishings_mappings(
   else if ((option = ppdFindOption(ppd, "CutType")) != NULL) {
     choice_trim = ppdFindChoice(option, "0FullCutAllPages");
   }
-  // Custom (the manufacturer, not a custom option)
+  // Hwasung and Custom (the manufacturer, not a custom option)
   else if ((option = ppdFindOption(ppd, "CutterMode")) != NULL) {
-    // Prefer partial cut if it exists.  If not, look for full cut.
-    if ((choice_trim = ppdFindChoice(option, "3PartialCutEndDoc")) == NULL) {
-      if ((choice_trim = ppdFindChoice(option, "4FullCutEndDoc")) == NULL) {
-        choice_trim = ppdFindChoice(option, "2FullCutEndDoc");
-      }
+    if ((choice_none = ppdFindChoice(option, "0NoNo")) != NULL) {
+      // Hwasung
+      // "NoPartial": "No" cut at page end, "Partial" cut at document end.
+      choice_trim = ppdFindChoice(option, "1NoPartial");
     }
-    choice_none = ppdFindChoice(option, "0NoCut");
+    else {
+      // Custom
+      // Prefer partial cut if it exists.  If not, look for full cut.
+      if ((choice_trim = ppdFindChoice(option, "3PartialCutEndDoc")) == NULL) {
+        if ((choice_trim = ppdFindChoice(option, "4FullCutEndDoc")) == NULL) {
+          choice_trim = ppdFindChoice(option, "2FullCutEndDoc");
+        }
+      }
+      choice_none = ppdFindChoice(option, "0NoCut");
+    }
   }
 
   // No trim-specific options were found in the PPD file.
