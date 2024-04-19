@@ -3489,38 +3489,38 @@ _ppdCreateFromIPP2(
 
   if ((attr = ippFindAttribute(supported, "printer-mandatory-job-attributes", IPP_TAG_KEYWORD)) != NULL)
   {
-    char	prefix = '\"';		// Prefix for string
-
-    cupsFilePuts(fp, "*cupsMandatory: \"");
-    for (i = 0, count = ippGetCount(attr); i < count; i ++)
+    const char *prefix;			// Prefix for string
+    for (i = 0, count = ippGetCount(attr), prefix = "*cupsMandatory: \""; i < count; i ++)
     {
       keyword = ippGetString(attr, i, NULL);
 
       if (strcmp(keyword, "attributes-charset") && strcmp(keyword, "attributes-natural-language") && strcmp(keyword, "printer-uri"))
       {
-        cupsFilePrintf(fp, "%c%s", prefix, keyword);
-        prefix = ',';
+        cupsFilePrintf(fp, "%s%s", prefix, keyword);
+        prefix = " ";
       }
     }
-    cupsFilePuts(fp, "\"\n");
+
+    if (!strcmp(prefix, " "))
+      cupsFilePuts(fp, "\"\n");
   }
 
   if ((attr = ippFindAttribute(supported, "printer-requested-job-attributes", IPP_TAG_KEYWORD)) != NULL)
   {
-    char	prefix = '\"';		// Prefix for string
-
-    cupsFilePuts(fp, "*cupsRequested: \"");
-    for (i = 0, count = ippGetCount(attr); i < count; i ++)
+    const char *prefix;			// Prefix for string
+    for (i = 0, count = ippGetCount(attr), prefix = "*cupsRequested: \""; i < count; i ++)
     {
       keyword = ippGetString(attr, i, NULL);
 
       if (strcmp(keyword, "attributes-charset") && strcmp(keyword, "attributes-natural-language") && strcmp(keyword, "printer-uri"))
       {
-        cupsFilePrintf(fp, "%c%s", prefix, keyword);
-        prefix = ',';
+        cupsFilePrintf(fp, "%s%s", prefix, keyword);
+        prefix = ",";
       }
     }
-    cupsFilePuts(fp, "\"\n");
+
+    if (!strcmp(prefix, ","))
+      cupsFilePuts(fp, "\"\n");
   }
 
  /*
