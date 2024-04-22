@@ -3295,8 +3295,6 @@ _ppdCreateFromIPP2(
   int			xres, yres;	/* Resolution values */
   int                   resolutions[1000];
                                         /* Array of resolution indices */
-  int			have_qdraft = 0,/* Have draft quality? */
-			have_qhigh = 0;	/* Have high quality? */
   char			msgid[256];	/* Message identifier (attr.value) */
   const char		*keyword,	/* Keyword value */
 			*msgstr;	/* Localized string */
@@ -4173,7 +4171,6 @@ _ppdCreateFromIPP2(
       pwg_ppdize_resolution(attr, resolutions[0], &xres, &yres, NULL, 0);
       cupsFilePrintf(fp, "*cupsPrintQuality Draft: \"<</HWResolution[%d %d]>>setpagedevice\"\n", xres, yres);
       cupsFilePrintf(fp, "*%s.cupsPrintQuality Draft/%s: \"\"\n", lang->language, _cupsLangString(lang, _("Draft")));
-      have_qdraft = 1;
     }
 
     pwg_ppdize_resolution(attr, resolutions[count / 2], &xres, &yres, NULL, 0);
@@ -4185,7 +4182,6 @@ _ppdCreateFromIPP2(
       pwg_ppdize_resolution(attr, resolutions[count - 1], &xres, &yres, NULL, 0);
       cupsFilePrintf(fp, "*cupsPrintQuality High: \"<</HWResolution[%d %d]>>setpagedevice\"\n", xres, yres);
       cupsFilePrintf(fp, "*%s.cupsPrintQuality High/%s: \"\"\n", lang->language, _cupsLangString(lang, _("High")));
-      have_qhigh = 1;
     }
 
     cupsFilePuts(fp, "*CloseUI: *cupsPrintQuality\n");
@@ -4260,7 +4256,6 @@ _ppdCreateFromIPP2(
     if (ippContainsInteger(quality, IPP_QUALITY_DRAFT))
     {
       cupsFilePrintf(fp, "*cupsPrintQuality Draft: \"<</HWResolution[%d %d]>>setpagedevice\"\n*%s.cupsPrintQuality Draft/%s: \"\"\n", xres, yres, lang->language, _cupsLangString(lang, _("Draft")));
-      have_qdraft = 1;
     }
 
     cupsFilePrintf(fp, "*cupsPrintQuality Normal: \"<</HWResolution[%d %d]>>setpagedevice\"\n*%s.cupsPrintQuality Normal/%s: \"\"\n", xres, yres, lang->language, _cupsLangString(lang, _("Normal")));
@@ -4268,7 +4263,6 @@ _ppdCreateFromIPP2(
     if (ippContainsInteger(quality, IPP_QUALITY_HIGH))
     {
       cupsFilePrintf(fp, "*cupsPrintQuality High: \"<</HWResolution[%d %d]>>setpagedevice\"\n*%s.cupsPrintQuality High/%s: \"\"\n", xres, yres, lang->language, _cupsLangString(lang, _("High")));
-      have_qhigh = 1;
     }
     cupsFilePuts(fp, "*CloseUI: *cupsPrintQuality\n");
   }
@@ -4415,46 +4409,6 @@ _ppdCreateFromIPP2(
       cupsFilePrintf(fp, "*DefaultColorModel: %s\n", default_color);
     if (wrote_color)
       cupsFilePuts(fp, "*CloseUI: *ColorModel\n");
-
-    if (default_color)
-    {
-      // Standard presets for color mode and quality...
-      if (have_qdraft)
-	cupsFilePuts(fp,
-		     "*APPrinterPreset Gray_with_Paper_Auto-Detect_-_Draft/Draft B&W: \"\n"
-		     "  *cupsPrintQuality Draft *ColorModel Gray\n"
-		     "  com.apple.print.preset.graphicsType General\n"
-		     "  com.apple.print.preset.quality low\n"
-		     "  com.apple.print.preset.media-front-coating autodetect\n"
-		     "  com.apple.print.preset.output-mode monochrome\"\n"
-		     "*End\n");
-      cupsFilePuts(fp,
-                   "*APPrinterPreset Gray_with_Paper_Auto-Detect/Black and White: \"\n"
-		   "  *cupsPrintQuality Normal *ColorModel Gray\n"
-		   "  com.apple.print.preset.graphicsType General\n"
-		   "  com.apple.print.preset.quality mid\n"
-		   "  com.apple.print.preset.media-front-coating autodetect\n"
-		   "  com.apple.print.preset.output-mode monochrome\"\n"
-		   "*End\n");
-      if (strcmp(default_color, "Gray"))
-	cupsFilePuts(fp,
-		     "*APPrinterPreset Color_with_Paper_Auto-Detect/Color: \"\n"
-		     "  *cupsPrintQuality Normal *ColorModel RGB\n"
-		     "  com.apple.print.preset.graphicsType General\n"
-		     "  com.apple.print.preset.quality mid\n"
-		     "  com.apple.print.preset.media-front-coating autodetect\n"
-		     "  com.apple.print.preset.output-mode color\"\n"
-		     "*End\n");
-      if (!strcmp(default_color, "AdobeRGB") || have_qhigh)
-	cupsFilePrintf(fp,
-		       "*APPrinterPreset Photo_with_Paper_Auto-Detect/Photo: \"\n"
-		       "  *cupsPrintQuality %s *ColorModel %s\n"
-		       "  com.apple.print.preset.graphicsType Photo\n"
-		       "  com.apple.print.preset.quality %s\n"
-		       "  com.apple.print.preset.media-front-coating autodetect\n"
-		       "  com.apple.print.preset.output-mode color\"\n"
-		       "*End\n", have_qhigh ? "High" : "Normal", default_color, have_qhigh ? "high" : "mid");
-    }
   }
 
  /*
