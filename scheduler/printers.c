@@ -57,6 +57,9 @@ static void		add_resolution_mappings(ipp_t *mappings, ipp_t *ppd_attrs,
 						ppd_file_t *ppd, const char *printer_name);
 static int add_trim_finishings_mappings(ipp_t *mappings, ipp_t *ppd_attrs,
                                         ppd_file_t *ppd);
+static void add_print_quality_mappings(ipp_t *mappings,
+                                       ipp_t *ppd_attrs,
+                                       ppd_file_t *ppd);
 
 /*
  * 'cupsdAddPrinter()' - Add a printer to the system.
@@ -3369,8 +3372,11 @@ add_printer_defaults(cupsd_printer_t *p)/* I - Printer */
   if (!cupsGetOption("print-color-mode", p->num_options, p->options))
     ippAddString(p->attrs, IPP_TAG_PRINTER, IPP_TAG_KEYWORD, "print-color-mode-default", NULL, (p->type & CUPS_PRINTER_COLOR) ? "color" : "monochrome");
 
-  if (!cupsGetOption("print-quality", p->num_options, p->options))
-    ippAddInteger(p->attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM, "print-quality-default", IPP_QUALITY_NORMAL);
+  if (!cupsGetOption("print-quality", p->num_options, p->options) &&
+      !ippFindAttribute(p->ppd_attrs, "print-quality-default", IPP_TAG_ENUM)) {
+    ippAddInteger(p->attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
+                  "print-quality-default", IPP_QUALITY_NORMAL);
+  }
 }
 
 
@@ -4966,6 +4972,7 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
     add_resolution_mappings(option_mappings, p->ppd_attrs, ppd, p->name);
     finishings_created = add_trim_finishings_mappings(
         option_mappings, p->ppd_attrs, ppd);
+    add_print_quality_mappings(option_mappings, p->ppd_attrs, ppd);
     ippAddCollection(p->ppd_attrs, IPP_TAG_PRINTER, "option-mappings",
                      option_mappings);
     ippDelete(option_mappings);
@@ -5697,9 +5704,9 @@ static int add_trim_finishings_mappings(
     ipp_t *mappings,  /* IO - Collection to add option mappinngs to */
     ipp_t *ppd_attrs, /* IO - IPP attributes for printer */
     ppd_file_t *ppd)  /* I  - Printer PPD */ {
-  ppd_option_t* option = NULL;
-  ppd_choice_t* choice_trim = NULL;
-  ppd_choice_t* choice_none = NULL;
+  ppd_option_t *option = NULL;
+  ppd_choice_t *choice_trim = NULL;
+  ppd_choice_t *choice_none = NULL;
 
   // Epson
   if ((option = ppdFindOption(ppd, "TmxPaperCut")) != NULL) {
@@ -5757,12 +5764,12 @@ static int add_trim_finishings_mappings(
 
   // If we detected valid PPD options, update our mapping.  Create a new IPP
   // attribute to store the IPP to PPD mappings.
-  ipp_t* trim_attr = ippNew();
+  ipp_t *trim_attr = ippNew();
   ippAddString(trim_attr, IPP_TAG_ZERO, IPP_TAG_TEXT, option->keyword,
                NULL, "%s");
 
   // Create the mapping from IPP value to PPD value.
-  ipp_t* value_mapping = ippNew();
+  ipp_t *value_mapping = ippNew();
   ippAddString(value_mapping, IPP_TAG_ZERO, IPP_TAG_KEYWORD, "trim", NULL,
                choice_trim->choice);
   ippAddString(value_mapping, IPP_TAG_ZERO, IPP_TAG_KEYWORD, "none", NULL,
@@ -5787,4 +5794,77 @@ static int add_trim_finishings_mappings(
                 choice_trim->marked ? IPP_FINISHINGS_TRIM : IPP_FINISHINGS_NONE);
 
   return 1;
+}
+
+/*
+ * 'add_print_quality_mappings' - Looks for PPD-specific print quality options,
+ * and if found, creates a mapping between the IPP print-quality attribute and
+ * the equivalent PPD options.  This mapping can be used at print time to
+ * replace the IPP attribute with the PPD-specific option.  This will also
+ * update @code ppd_attrs@ with new print-quality-supported and
+ * print-quality-default attributes (deleting the previous ones).
+ */
+void add_print_quality_mappings(
+    ipp_t *mappings,  /* IO - Collection to add option mappinngs to */
+    ipp_t *ppd_attrs, /* IO - IPP attributes for printer */
+    ppd_file_t *ppd)  /* I  - Printer PPD */ {
+  ppd_option_t *option = NULL;
+  ppd_choice_t *choice_normal = NULL;
+  ppd_choice_t *choice_high = NULL;
+
+  // Dymo
+  if ((option = ppdFindOption(ppd, "DymoPrintQuality")) != NULL) {
+    choice_normal = ppdFindChoice(option, "Text");
+    choice_high = ppdFindChoice(option, "Graphics");
+  }
+
+  if (choice_normal == NULL || choice_high == NULL) {
+    return;
+  }
+
+  // If we detected valid PPD options, update our mapping.  Create a new IPP
+  // attribute to store the IPP to PPD mappings.
+  ipp_t *quality_attr = ippNew();
+  ippAddString(quality_attr, IPP_TAG_ZERO, IPP_TAG_TEXT, option->keyword, NULL,
+               "%s");
+
+  // Create the mapping from IPP value to PPD value.
+  char normal_buffer[4];
+  char high_buffer[4];
+  snprintf(normal_buffer, sizeof(normal_buffer), "%d", IPP_QUALITY_NORMAL);
+  snprintf(high_buffer, sizeof(high_buffer), "%d", IPP_QUALITY_HIGH);
+  ipp_t *value_mapping = ippNew();
+  ippAddString(value_mapping, IPP_TAG_ZERO, IPP_TAG_KEYWORD, normal_buffer,
+               NULL, choice_normal->choice);
+  ippAddString(value_mapping, IPP_TAG_ZERO, IPP_TAG_KEYWORD, high_buffer, NULL,
+               choice_high->choice);
+
+  ippAddCollection(quality_attr, IPP_TAG_ZERO, "_mapping", value_mapping);
+  ippAddCollection(mappings, IPP_TAG_ZERO, "print-quality", quality_attr);
+
+  ippDelete(quality_attr);
+  ippDelete(value_mapping);
+
+  // Delete the existing attrbiutes and add the new values.
+  ipp_attribute_t *ipp_attribute =
+      ippFindAttribute(ppd_attrs, "print-quality-supported", IPP_TAG_ENUM);
+  if (ipp_attribute != NULL) {
+    ippDeleteAttribute(ppd_attrs, ipp_attribute);
+    ipp_attribute = NULL;
+  }
+  ipp_attribute =
+      ippFindAttribute(ppd_attrs, "print-quality-default", IPP_TAG_ENUM);
+  if (ipp_attribute != NULL) {
+    ippDeleteAttribute(ppd_attrs, ipp_attribute);
+    ipp_attribute = NULL;
+  }
+
+  static const int num_qualities = 2;
+  static const int qualities[num_qualities] = {IPP_QUALITY_NORMAL,
+                                               IPP_QUALITY_HIGH};
+  ippAddIntegers(ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
+                 "print-quality-supported", num_qualities, qualities);
+  ippAddInteger(ppd_attrs, IPP_TAG_PRINTER, IPP_TAG_ENUM,
+                "print-quality-default",
+                choice_normal->marked ? IPP_QUALITY_NORMAL : IPP_QUALITY_HIGH);
 }

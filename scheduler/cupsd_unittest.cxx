@@ -95,6 +95,12 @@ class PrintJob : public testing::Test {
     return *this;
   }
 
+  // Chainable function to add the IPP print-quality attribute.
+  const PrintJob& PrintQuality(const std::string& value) const {
+    AddIppStrings("print-quality", {value});
+    return *this;
+  }
+
   // Chainable function to add the IPP finishings attribute.
   const PrintJob& Finishings(const std::string& value) const {
     AddIppStrings("finishings", {value});
@@ -185,6 +191,14 @@ class PrintJob : public testing::Test {
     return ret;
   }
 
+  // Return the value of the printer's IPP print-quality-default attribute, or
+  // IPP_QUALITY_NORMAL if it doesn't exist.
+  int DefaultPrintQuality() const {
+    int ret = IPP_QUALITY_NORMAL;
+    DefaultPrintQualityImpl(ret);
+    return ret;
+  }
+
   // Return the value of the printer's IPP finishings-default attribute, or
   // IPP_FINISHINGS_NONE if it doesn't exist.
   int DefaultFinishings() const {
@@ -232,6 +246,16 @@ class PrintJob : public testing::Test {
     ASSERT_TRUE(res);
     ret = res;
     free(res);
+  }
+
+  void DefaultPrintQualityImpl(int& ret) const {
+    ASSERT_TRUE(job_->printer);
+    ipp_attribute_t* attr = ippFindAttribute(
+        job_->printer->ppd_attrs, "print-quality-default", IPP_TAG_ENUM);
+    if (!attr)
+      return;
+    ASSERT_EQ(1, attr->num_values);
+    ret = ippGetInteger(attr, 0);
   }
 
   void DefaultFinishingsImpl(int& ret) const {
@@ -442,6 +466,40 @@ TEST_F(PrintJob, IppToPpd_PrintQuality_Normal) {
   EXPECT_FALSE(CheckOptionSupported("print-quality", "3"));
   EXPECT_TRUE(CheckOptionSupported("print-quality", "4"));
   EXPECT_FALSE(CheckOptionSupported("print-quality", "5"));
+}
+
+TEST_F(PrintJob, PrintQualityDymoNormalDefault) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *DymoPrintQuality/Print Quality: PickOne
+*OrderDependency: 21 AnySetup *DymoPrintQuality
+*DefaultDymoPrintQuality: Text
+*DymoPrintQuality Text/Text Only: ""
+*DymoPrintQuality Graphics/Barcodes and Graphics: ""
+*CloseUI: *DymoPrintQuality)");
+  EXPECT_FALSE(CheckOptionSupported("print-quality", "3"));
+  EXPECT_TRUE(CheckOptionSupported("print-quality", "4"));
+  EXPECT_TRUE(CheckOptionSupported("print-quality", "5"));
+
+  EXPECT_EQ("DymoPrintQuality=Text", PrintQuality("4").Filter());
+  EXPECT_EQ("DymoPrintQuality=Graphics", PrintQuality("5").Filter());
+  EXPECT_EQ(IPP_QUALITY_NORMAL, DefaultPrintQuality());
+}
+
+TEST_F(PrintJob, PrintQualityDymoGraphicsDefault) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *DymoPrintQuality/Print Quality: PickOne
+*OrderDependency: 21 AnySetup *DymoPrintQuality
+*DefaultDymoPrintQuality: Graphics
+*DymoPrintQuality Text/Text Only: ""
+*DymoPrintQuality Graphics/Barcodes and Graphics: ""
+*CloseUI: *DymoPrintQuality)");
+  EXPECT_FALSE(CheckOptionSupported("print-quality", "3"));
+  EXPECT_TRUE(CheckOptionSupported("print-quality", "4"));
+  EXPECT_TRUE(CheckOptionSupported("print-quality", "5"));
+
+  EXPECT_EQ("DymoPrintQuality=Text", PrintQuality("4").Filter());
+  EXPECT_EQ("DymoPrintQuality=Graphics", PrintQuality("5").Filter());
+  EXPECT_EQ(IPP_QUALITY_HIGH, DefaultPrintQuality());
 }
 
 // Roll printing trim tests
