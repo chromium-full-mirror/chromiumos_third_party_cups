@@ -563,7 +563,23 @@ TEST_F(PrintJob, RollPrintingTrimStarOneOption) {
   EXPECT_FALSE(CheckOptionSupported("finishings", "11"));
 }
 
-TEST_F(PrintJob, RollPrintingTrimCustom) {
+TEST_F(PrintJob, RollPrintingTrimCustomPartialCut) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *CutterMode/Cutter Mode: PickOne
+*DefaultCutterMode: 2TotalCutPage
+*CutterMode 0NoCutPage/No Cut: ""
+*CutterMode 3PartialCutDoc/Partial cut at the end of the document: ""
+*CutterMode 4TotalCutDoc/Total cut at the end of the document: ""
+*CloseUI: *CutterMode)");
+  EXPECT_TRUE(CheckOptionSupported("finishings", "3"));
+  EXPECT_TRUE(CheckOptionSupported("finishings", "11"));
+
+  EXPECT_EQ("CutterMode=0NoCutPage", Finishings("none").Filter());
+  EXPECT_EQ("CutterMode=3PartialCutDoc", Finishings("trim").Filter());
+  EXPECT_EQ(IPP_FINISHINGS_NONE, DefaultFinishings());
+}
+
+TEST_F(PrintJob, RollPrintingTrimCustomFullCut) {
   SetPrinter(R"(*PPD-Adobe: 4.3
 *OpenUI *CutterMode/Cutter Mode: PickOne
 *DefaultCutterMode: 4FullCutEndDoc

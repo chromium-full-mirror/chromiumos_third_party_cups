@@ -5741,11 +5741,17 @@ static int add_trim_finishings_mappings(
       // Custom
       // Prefer partial cut if it exists.  If not, look for full cut.
       if ((choice_trim = ppdFindChoice(option, "3PartialCutEndDoc")) == NULL) {
-        if ((choice_trim = ppdFindChoice(option, "4FullCutEndDoc")) == NULL) {
-          choice_trim = ppdFindChoice(option, "2FullCutEndDoc");
+        if ((choice_trim = ppdFindChoice(option, "3PartialCutDoc")) == NULL) {
+          if ((choice_trim = ppdFindChoice(option, "4FullCutEndDoc")) == NULL) {
+            if ((choice_trim = ppdFindChoice(option, "2FullCutEndDoc")) == NULL) {
+              choice_trim = ppdFindChoice(option, "4TotalCutDoc");
+            }
+          }
         }
       }
-      choice_none = ppdFindChoice(option, "0NoCut");
+      if ((choice_none = ppdFindChoice(option, "0NoCut")) == NULL) {
+        choice_none = ppdFindChoice(option, "0NoCutPage");
+      }
     }
   }
 
