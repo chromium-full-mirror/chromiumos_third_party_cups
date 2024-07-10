@@ -5740,17 +5740,33 @@ static int add_trim_finishings_mappings(
     else {
       // Custom
       // Prefer partial cut if it exists.  If not, look for full cut.
-      if ((choice_trim = ppdFindChoice(option, "3PartialCutEndDoc")) == NULL) {
-        if ((choice_trim = ppdFindChoice(option, "3PartialCutDoc")) == NULL) {
-          if ((choice_trim = ppdFindChoice(option, "4FullCutEndDoc")) == NULL) {
-            if ((choice_trim = ppdFindChoice(option, "2FullCutEndDoc")) == NULL) {
-              choice_trim = ppdFindChoice(option, "4TotalCutDoc");
-            }
-          }
+      // Define an array of choice_trim options
+      const char *choices[] = {
+        "2PartialCutEndJob",  // P3
+        "3PartialCutEndDoc",  // H400_H350
+        "3PartialCutDoc",     // KUBE
+        "4PartialCutEndDoc",  // K3
+        "2FullCutEndDoc",     // MODUS3_CA
+        "2TotalCutDoc",       // KPM862
+        "1TotalCutEndDoc",    // KPM180H
+        "2TotalCutEndDoc",    // KPM300H3
+        "3CutDocRecovery",    // TG2480H
+        "4CutDocRecovery",    // TG2460-H-EJ & TG2460H
+      };
+
+      // Iterate over the array and find the first available choice
+      for (int i = 0; i < sizeof(choices)/sizeof(choices[0]); i++) {
+        if ((choice_trim = ppdFindChoice(option, choices[i])) != NULL) {
+          break;
         }
       }
+
       if ((choice_none = ppdFindChoice(option, "0NoCut")) == NULL) {
-        choice_none = ppdFindChoice(option, "0NoCutPage");
+        if ((choice_none = ppdFindChoice(option, "0NoCutPage")) == NULL) {
+          if ((choice_none = ppdFindChoice(option, "1NoCutPage")) == NULL) {
+            choice_none = ppdFindChoice(option, "0TearOff");
+          }
+        }
       }
     }
   }

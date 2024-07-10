@@ -582,16 +582,16 @@ TEST_F(PrintJob, RollPrintingTrimCustomPartialCut) {
 TEST_F(PrintJob, RollPrintingTrimCustomFullCut) {
   SetPrinter(R"(*PPD-Adobe: 4.3
 *OpenUI *CutterMode/Cutter Mode: PickOne
-*DefaultCutterMode: 4FullCutEndDoc
+*DefaultCutterMode: 2FullCutEndDoc
 *CutterMode 0NoCut/No cut: ""
-*CutterMode 2FullCutEndPage/Full Cut at Page End: ""
-*CutterMode 4FullCutEndDoc/Full Cut at Document End: ""
+*CutterMode 1FullCutEndPage/Full Cut at Page End: ""
+*CutterMode 2FullCutEndDoc/Full Cut at Document End: ""
 *CloseUI: *CutterMode)");
   EXPECT_TRUE(CheckOptionSupported("finishings", "3"));
   EXPECT_TRUE(CheckOptionSupported("finishings", "11"));
 
   EXPECT_EQ("CutterMode=0NoCut", Finishings("none").Filter());
-  EXPECT_EQ("CutterMode=4FullCutEndDoc", Finishings("trim").Filter());
+  EXPECT_EQ("CutterMode=2FullCutEndDoc", Finishings("trim").Filter());
   EXPECT_EQ(IPP_FINISHINGS_TRIM, DefaultFinishings());
 }
 
