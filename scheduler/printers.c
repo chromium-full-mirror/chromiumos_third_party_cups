@@ -5770,6 +5770,13 @@ static int add_trim_finishings_mappings(
       }
     }
   }
+  // Cut option used in generic ESC/POS ppd file.
+  else if ((option = ppdFindOption(ppd, "Cutting")) != NULL) {
+      if ((choice_trim = ppdFindChoice(option, "1CutAtTheEndOfPage")) == NULL) {
+          choice_trim = ppdFindChoice(option, "2CutAtTheEndOfJob");
+      }
+      choice_none = ppdFindChoice(option, "0NoCutting");
+  }
 
   // No trim-specific options were found in the PPD file.
   if (!choice_trim && !choice_none) {
