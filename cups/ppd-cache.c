@@ -2040,11 +2040,11 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
       // DocCutType (Star)
       if (ppdFindChoice(ppd_option, "1PartialCutDoc"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "DocCutType", "1PartialCutDoc");
-      if (ppdFindChoice(ppd_option, "2FullCutDoc"))
+      else if (ppdFindChoice(ppd_option, "2FullCutDoc"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "DocCutType", "2FullCutDoc");
-      if (ppdFindChoice(ppd_option, "1CutDoc"))
+      else if (ppdFindChoice(ppd_option, "1CutDoc"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "DocCutType", "1CutDoc");
-      if (ppdFindChoice(ppd_option, "4FullCutAllPages"))
+      else if (ppdFindChoice(ppd_option, "4FullCutAllPages"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "DocCutType", "4FullCutAllPages");
 
       // CutType (Star)
@@ -2054,31 +2054,31 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
       // CutterMode (Hwasung/Custom)
       if (ppdFindChoice(ppd_option, "1NoPartial"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "1NoPartial");
-      if (ppdFindChoice(ppd_option, "2PartialCutEndJob"))
+      else if (ppdFindChoice(ppd_option, "2PartialCutEndJob"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "2PartialCutEndJob");
-      if (ppdFindChoice(ppd_option, "3PartialCutEndDoc"))
+      else if (ppdFindChoice(ppd_option, "3PartialCutEndDoc"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "3PartialCutEndDoc");
-      if (ppdFindChoice(ppd_option, "3PartialCutDoc"))
+      else if (ppdFindChoice(ppd_option, "3PartialCutDoc"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "3PartialCutDoc");
-      if (ppdFindChoice(ppd_option, "4PartialCutEndDoc"))
+      else if (ppdFindChoice(ppd_option, "4PartialCutEndDoc"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "4PartialCutEndDoc");
-      if (ppdFindChoice(ppd_option, "2FullCutEndDoc"))
+      else if (ppdFindChoice(ppd_option, "2FullCutEndDoc"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "2FullCutEndDoc");
-      if (ppdFindChoice(ppd_option, "2TotalCutDoc"))
+      else if (ppdFindChoice(ppd_option, "2TotalCutDoc"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "2TotalCutDoc");
-      if (ppdFindChoice(ppd_option, "1TotalCutEndDoc"))
+      else if (ppdFindChoice(ppd_option, "1TotalCutEndDoc"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "1TotalCutEndDoc");
-      if (ppdFindChoice(ppd_option, "2TotalCutEndDoc"))
+      else if (ppdFindChoice(ppd_option, "2TotalCutEndDoc"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "2TotalCutEndDoc");
-      if (ppdFindChoice(ppd_option, "3CutDocRecovery"))
+      else if (ppdFindChoice(ppd_option, "3CutDocRecovery"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "3CutDocRecovery");
-      if (ppdFindChoice(ppd_option, "4CutDocRecovery"))
+      else if (ppdFindChoice(ppd_option, "4CutDocRecovery"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "4CutDocRecovery");
 
       // Cutting (Generic ESC/POS printers)
       if (ppdFindChoice(ppd_option, "1CutAtTheEndOfPage"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "Cutting", "1CutAtTheEndOfPage");
-      if (ppdFindChoice(ppd_option, "2CutAtTheEndOfJob"))
+      else if (ppdFindChoice(ppd_option, "2CutAtTheEndOfJob"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "Cutting", "2CutAtTheEndOfJob");
     }
 
