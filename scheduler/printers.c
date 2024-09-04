@@ -5772,8 +5772,8 @@ static int add_trim_finishings_mappings(
   }
   // Cut option used in generic ESC/POS ppd file.
   else if ((option = ppdFindOption(ppd, "Cutting")) != NULL) {
-      if ((choice_trim = ppdFindChoice(option, "1CutAtTheEndOfPage")) == NULL) {
-          choice_trim = ppdFindChoice(option, "2CutAtTheEndOfJob");
+      if ((choice_trim = ppdFindChoice(option, "2CutAtTheEndOfJob")) == NULL) {
+          choice_trim = ppdFindChoice(option, "1CutAtTheEndOfPage");
       }
       choice_none = ppdFindChoice(option, "0NoCutting");
   }

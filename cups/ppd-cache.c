@@ -2076,10 +2076,10 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "4CutDocRecovery");
 
       // Cutting (Generic ESC/POS printers)
-      if (ppdFindChoice(ppd_option, "1CutAtTheEndOfPage"))
-        pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "Cutting", "1CutAtTheEndOfPage");
-      else if (ppdFindChoice(ppd_option, "2CutAtTheEndOfJob"))
+      if (ppdFindChoice(ppd_option, "2CutAtTheEndOfJob"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "Cutting", "2CutAtTheEndOfJob");
+      else if (ppdFindChoice(ppd_option, "1CutAtTheEndOfPage"))
+        pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "Cutting", "1CutAtTheEndOfPage");
     }
 
     if (cupsArrayCount(pc->finishings) == 0)
