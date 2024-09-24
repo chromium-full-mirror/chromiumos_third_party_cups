@@ -1,7 +1,7 @@
 /*
  * IPP routines for the CUPS scheduler.
  *
- * Copyright © 2020-2023 by OpenPrinting
+ * Copyright © 2020-2024 by OpenPrinting
  * Copyright © 2007-2021 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
@@ -5433,6 +5433,14 @@ create_local_bg_thread(
 
   // TODO: Grab printer icon file...
   httpClose(http);
+
+  // Validate response from printer...
+  if (!ippValidateAttributes(response))
+  {
+    cupsdLogMessage(CUPSD_LOG_ERROR, "%s: Printer returned invalid data: %s", printer->name, cupsLastErrorString());
+    ippDelete(response);
+    return NULL;
+  }
 
  /*
   * Write the PPD for the queue...
