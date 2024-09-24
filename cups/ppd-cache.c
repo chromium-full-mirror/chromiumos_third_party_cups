@@ -5083,12 +5083,14 @@ _ppdCreateFromIPP2(
 
       cupsArrayAdd(templates, (void *)keyword);
 
+      pwg_ppdize_name(keyword, ppdname, sizeof(ppdname));
+
       snprintf(msgid, sizeof(msgid), "finishing-template.%s", keyword);
       if ((msgstr = _cupsLangString(lang, msgid)) == msgid || !strcmp(msgid, msgstr))
 	if ((msgstr = _cupsMessageLookup(strings, msgid)) == msgid)
 	  msgstr = keyword;
 
-      cupsFilePrintf(fp, "*cupsFinishingTemplate %s: \"\n", keyword);
+      cupsFilePrintf(fp, "*cupsFinishingTemplate %s: \"\n", ppdname);
       for (finishing_attr = ippFirstAttribute(finishing_col); finishing_attr; finishing_attr = ippNextAttribute(finishing_col))
       {
         if (ippGetValueTag(finishing_attr) == IPP_TAG_BEGIN_COLLECTION)
@@ -5101,7 +5103,7 @@ _ppdCreateFromIPP2(
 	}
       }
       cupsFilePuts(fp, "\"\n");
-      cupsFilePrintf(fp, "*%s.cupsFinishingTemplate %s/%s: \"\"\n", lang->language, keyword, msgstr);
+      cupsFilePrintf(fp, "*%s.cupsFinishingTemplate %s/%s: \"\"\n", lang->language, ppdname, msgstr);
       cupsFilePuts(fp, "*End\n");
     }
 
@@ -5147,7 +5149,8 @@ _ppdCreateFromIPP2(
       if (!preset || !preset_name)
         continue;
 
-      cupsFilePrintf(fp, "*APPrinterPreset %s: \"\n", preset_name);
+      pwg_ppdize_name(preset_name, ppdname, sizeof(ppdname));
+      cupsFilePrintf(fp, "*APPrinterPreset %s: \"\n", ppdname);
       for (member = ippFirstAttribute(preset); member; member = ippNextAttribute(preset))
       {
         member_name = ippGetName(member);
@@ -5188,7 +5191,10 @@ _ppdCreateFromIPP2(
             fin_col = ippGetCollection(member, i);
 
             if ((keyword = ippGetString(ippFindAttribute(fin_col, "finishing-template", IPP_TAG_ZERO), 0, NULL)) != NULL)
-              cupsFilePrintf(fp, "*cupsFinishingTemplate %s\n", keyword);
+            {
+              pwg_ppdize_name(keyword, ppdname, sizeof(ppdname));
+              cupsFilePrintf(fp, "*cupsFinishingTemplate %s\n", ppdname);
+            }
           }
         }
         else if (!strcmp(member_name, "media"))
@@ -5215,13 +5221,13 @@ _ppdCreateFromIPP2(
           if ((keyword = ippGetString(ippFindAttribute(media_col, "media-source", IPP_TAG_ZERO), 0, NULL)) != NULL)
           {
             pwg_ppdize_name(keyword, ppdname, sizeof(ppdname));
-            cupsFilePrintf(fp, "*InputSlot %s\n", keyword);
+            cupsFilePrintf(fp, "*InputSlot %s\n", ppdname);
 	  }
 
           if ((keyword = ippGetString(ippFindAttribute(media_col, "media-type", IPP_TAG_ZERO), 0, NULL)) != NULL)
           {
             pwg_ppdize_name(keyword, ppdname, sizeof(ppdname));
-            cupsFilePrintf(fp, "*MediaType %s\n", keyword);
+            cupsFilePrintf(fp, "*MediaType %s\n", ppdname);
 	  }
         }
         else if (!strcmp(member_name, "print-quality"))
@@ -5267,7 +5273,10 @@ _ppdCreateFromIPP2(
       cupsFilePuts(fp, "\"\n*End\n");
 
       if ((localized_name = _cupsMessageLookup(strings, preset_name)) != preset_name)
-        cupsFilePrintf(fp, "*%s.APPrinterPreset %s/%s: \"\"\n", lang->language, preset_name, localized_name);
+      {
+        pwg_ppdize_name(preset_name, ppdname, sizeof(ppdname));
+        cupsFilePrintf(fp, "*%s.APPrinterPreset %s/%s: \"\"\n", lang->language, ppdname, localized_name);
+      }
     }
   }
 
@@ -6035,7 +6044,7 @@ pwg_ppdize_name(const char *ipp,	/* I - IPP keyword */
 	*end;				/* End of name buffer */
 
 
-  if (!ipp)
+  if (!ipp || !_cups_isalnum(*ipp))
   {
     *name = '\0';
     return;
@@ -6050,8 +6059,14 @@ pwg_ppdize_name(const char *ipp,	/* I - IPP keyword */
       ipp ++;
       *ptr++ = (char)toupper(*ipp++ & 255);
     }
-    else
+    else if (*ipp == '_' || *ipp == '.' || *ipp == '-' || _cups_isalnum(*ipp))
+    {
       *ptr++ = *ipp++;
+    }
+    else
+    {
+      ipp ++;
+    }
   }
 
   *ptr = '\0';
