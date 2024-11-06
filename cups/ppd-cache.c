@@ -2028,7 +2028,8 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
         || (ppd_option = ppdFindOption(ppd, "DocCutType")) != NULL
         || (ppd_option = ppdFindOption(ppd, "CutType")) != NULL
         || (ppd_option = ppdFindOption(ppd, "CutterMode")) != NULL
-        || (ppd_option = ppdFindOption(ppd, "Cutting")) != NULL)
+        || (ppd_option = ppdFindOption(ppd, "Cutting")) != NULL
+        || (ppd_option = ppdFindOption(ppd, "PostAction")) != NULL)
     {
      /*
       * Add trim finishings...
@@ -2075,6 +2076,10 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "3CutDocRecovery");
       else if (ppdFindChoice(ppd_option, "4CutDocRecovery"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "4CutDocRecovery");
+
+      // PostAction (TSC)
+      if (ppdFindChoice(ppd_option, "PartialCut"))
+        pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "PostAction", "PartialCut");
 
       // Cutting (Generic ESC/POS printers)
       if (ppdFindChoice(ppd_option, "2CutAtTheEndOfJob"))

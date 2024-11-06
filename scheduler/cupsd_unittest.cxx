@@ -610,6 +610,25 @@ TEST_F(PrintJob, RollPrintingTrimHwasung) {
   EXPECT_EQ(IPP_FINISHINGS_NONE, DefaultFinishings());
 }
 
+TEST_F(PrintJob, RollPrintingTrimTSC) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *PostAction/Post-Print Action: PickOne
+*OrderDependency: 130 AnySetup *PostAction
+*DefaultPostAction: TearOff
+*PostAction None/None: "%%"
+*PostAction TearOff/Tear Off: "%%"
+*PostAction PeelOff/Peel Off: "%%"
+*PostAction Cut/Cut: "%%"
+*PostAction PartialCut/Partial Cut: "%%"
+*CloseUI: *PostAction)");
+  EXPECT_TRUE(CheckOptionSupported("finishings", "3"));
+  EXPECT_TRUE(CheckOptionSupported("finishings", "11"));
+
+  EXPECT_EQ("PostAction=None", Finishings("none").Filter());
+  EXPECT_EQ("PostAction=PartialCut", Finishings("trim").Filter());
+  EXPECT_EQ(IPP_FINISHINGS_NONE, DefaultFinishings());
+}
+
 // PinPrint tests
 
 TEST_F(PrintJob, PinPrint_HP) {

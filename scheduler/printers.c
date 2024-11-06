@@ -5777,7 +5777,11 @@ static int add_trim_finishings_mappings(
       }
       choice_none = ppdFindChoice(option, "0NoCutting");
   }
-
+  // Cut option used in TSC ppd file.
+  else if ((option = ppdFindOption(ppd, "PostAction")) != NULL) {
+      choice_trim = ppdFindChoice(option, "PartialCut");
+      choice_none = ppdFindChoice(option, "None");
+  }
   // No trim-specific options were found in the PPD file.
   if (!choice_trim && !choice_none) {
     return 0;
