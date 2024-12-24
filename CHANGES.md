@@ -1,35 +1,134 @@
-CHANGES - OpenPrinting CUPS 2.4.7 - TBA
-==============================================
+CHANGES - OpenPrinting CUPS
+===========================
 
-Changes in CUPS v2.4.7 (TBA)
+
+Changes in CUPS v2.4.11 (2024-09-30)
+------------------------------------
+
+- Updated the maximum file descriptor limit for `cupsd` to 64k-1 (Issue #989)
+- Fixed `lpoptions -d` with a discovered but not added printer (Issue #833)
+- Fixed incorrect error message for HTTP/IPP errors (Issue #893)
+- Fixed JobPrivateAccess and SubscriptionPrivateAccess support for "all"
+  (Issue #990)
+- Fixed issues with cupsGetDestMediaByXxx (Issue #993)
+- Fixed adding and modifying of printers via the web interface (Issue #998)
+- Fixed HTTP PeerCred authentication for domain users (Issue #1001)
+- Fixed checkbox support (Issue #1008)
+- Fixed printer state notifications (Issue #1013)
+- Fixed IPP Everywhere printer setup (Issue #1033)
+
+
+Changes in CUPS v2.4.10 (2024-06-18)
+------------------------------------
+
+- Fixed error handling when reading a mixed `1setOf` attribute.
+- Fixed scheduler start if there is only domain socket to listen on (Issue #985)
+
+
+Changes in CUPS v2.4.9 (2024-06-11)
 -----------------------------------
+
+- Fixed domain socket handling (CVE-2024-35235)
+- Fixed creating of `cupsUrfSupported` PPD keyword (Issue #952)
+- Fixed searching for destinations in web ui (Issue #954)
+- Fixed TLS negotiation using OpenSSL with servers that require the TLS SNI
+  extension.
+- Really raised `cups_enum_dests()` timeout for listing available IPP printers
+  (Issue #751)...
+- Fixed `Host` header regression (Issue #967)
+- Fixed DNS-SD lookups of local services with Avahi (Issue #970)
+- Fixed listing jobs in destinations in web ui. (Apple issue #6204)
+- Fixed showing search query in web ui help page. (Issue #977)
+
+
+Changes in CUPS v2.4.8 (2024-04-26)
+-----------------------------------
+
+- Added warning if the device has to be asked for 'all,media-col-database'
+  separately (Issue #829)
+- Added new value for 'lpstat' option '-W' - successfull - for getting
+  successfully printed jobs (Issue #830)
+- Added support for PAM modules password-auth and system-auth (Issue #892)
+- Updated IPP Everywhere printer creation error reporting (Issue #347)
+- Updated and documented the MIME typing buffering limit (Issue #925)
+- Now report an error for temporary printer defaults with lpadmin (Issue #237)
+- Fixed mapping of PPD InputSlot, MediaType, and OutputBin values (Issue #238)
+- Fixed "document-unprintable-error" handling (Issue #391)
+- Fixed the web interface not showing an error for a non-existent printer
+  (Issue #423)
+- Fixed printing of jobs with job name longer than 255 chars on older printers
+  (Issue #644)
+- Really backported fix for Issue #742
+- Fixed `cupsCopyDestInfo` device connection detection (Issue #586)
+- Fixed "Upgrade" header handling when there is no TLS support (Issue #775)
+- Fixed memory leak when unloading a job (Issue #813)
+- Fixed memory leak when creating color profiles (Issue #815)
+- Fixed a punch finishing bug in the IPP Everywhere support (Issue #821)
+- Fixed crash in `scan_ps()` if incoming argument is NULL (Issue #831)
+- Fixed setting job state reasons for successful jobs (Issue #832)
+- Fixed infinite loop in IPP backend if hostname is IP address with Kerberos
+  (Issue #838)
+- Added additional check on socket if `revents` from `poll()` returns POLLHUP
+  together with POLLIN or POLLOUT in `httpAddrConnect2()` (Issue #839)
+- Fixed crash in `ppdEmitString()` if `size` is NULL (Issue #850)
+- Fixed reporting `media-source-supported` when sharing printer which has
+  numbers as strings instead of keywords as `InputSlot` values (Issue #859)
+- Fixed IPP backend to support the "print-scaling" option with IPP printers
+  (Issue #862)
+- Fixed potential race condition for the creation of temporary queues
+  (Issue #871)
+- Fixed `httpGets` timeout handling (Issue #879)
+- Fixed checking for required attributes during PPD generation (Issue #890)
+- Fixed encoding of IPv6 addresses in HTTP requests (Issue #903)
+- Fixed sending response headers to client (Issue #927)
+- Fixed CGI program initialization and validation of form checkbox and text
+  fields.
+
+
+Changes in CUPS v2.4.7 (2023-09-20)
+-----------------------------------
+
+- CVE-2023-4504 - Fixed Heap-based buffer overflow when reading Postscript
+  in PPD files
+- Added OpenSSL support for cupsHashData (Issue #762)
+- Fixed delays in lpd backend (Issue #741)
+- Fixed extensive logging in scheduler (Issue #604)
+- Fixed hanging of `lpstat` on IBM AIX (Issue #773)
+- Fixed hanging of `lpstat` on Solaris (Issue #156)
+- Fixed printing to stderr if we can't open cups-files.conf (Issue #777)
+- Fixed purging job files via `cancel -x` (Issue #742)
+- Fixed RFC 1179 port reserving behavior in LPD backend (Issue #743)
+- Fixed a bug in the PPD command interpretation code (Issue #768)
+- Fixed Oki 407 freeze when printing larger jobs (Issue #877)
 
 
 Changes in CUPS v2.4.6 (2023-06-22)
 -----------------------------------
 
-- Fix linking error on old MacOS (Issue #715)
-- Fix printing multiple files on specific printers (Issue #643)
-- Fix use-after-free when logging warnings in case of failures
-  in `cupsdAcceptClient()` (fixes CVE-2023-34241)
+- CVE-2023-34241: Fixed use-after-free when logging warnings in case of failures
+  in `cupsdAcceptClient()`.
+- Fixed linking error on old MacOS (Issue #715)
+- Fixed printing multiple files on specific printers (Issue #643)
 
 
 Changes in CUPS v2.4.5 (2023-06-13)
 -----------------------------------
 
-- Fix corruption of locally saved certificates (Issue #724)
+- Fixed corruption of locally saved certificates (Issue #724)
 
 
 Changes in CUPS v2.4.4 (2023-06-06)
 -----------------------------------
 
-- Fix segfault in `cupsGetNamedDest()` when trying to get default printer, but
+- Fixed segfault in `cupsGetNamedDest()` when trying to get default printer, but
   the default printer is not set (Issue #719)
 
 
 Changes in CUPS v2.4.3 (2023-06-01)
 -----------------------------------
 
+- CVE-2023-32360: Fixed default policy for CUPS-Get-Document operation
+- CVE-2023-32324: Fixed possible heap buffer overflow in `_cups_strlcpy()`.
 - Added a title with device uri for found network printers (Issues #402, #393)
 - Added new media sizes defined by IANA (Issues #501)
 - Added quirk for GoDEX label printers (Issue #440)
@@ -45,7 +144,6 @@ Changes in CUPS v2.4.3 (2023-06-01)
   (Issue #529)
 - Fixed default color settings for CMYK printers as well (Issue #500)
 - Fixed duplicate PPD2IPP media-type names (Issue #688)
-- Fixed possible heap buffer overflow in `_cups_strlcpy()` (fixes CVE-2023-32324)
 - Fixed InputSlot heuristic for photo sizes smaller than 5x7" if there is no
   media-source in the request (Issue #569)
 - Fixed invalid memory access during generating IPP Everywhere queue

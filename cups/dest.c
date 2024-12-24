@@ -1,7 +1,7 @@
 /*
  * User-defined destination (and option) support for CUPS.
  *
- * Copyright © 2021-2023 by OpenPrinting.
+ * Copyright © 2020-2024 by OpenPrinting.
  * Copyright © 2007-2019 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products.
  *
@@ -58,7 +58,7 @@
 #endif /* __APPLE__ */
 
 #ifdef HAVE_DNSSD
-#  define _CUPS_DNSSD_GET_DESTS 250     /* Milliseconds for cupsGetDests */
+#  define _CUPS_DNSSD_GET_DESTS 1000     /* Milliseconds for cupsGetDests */
 #  define _CUPS_DNSSD_MAXTIME	50	/* Milliseconds for maximum quantum of time */
 #else
 #  define _CUPS_DNSSD_GET_DESTS 0       /* Milliseconds for cupsGetDests */
@@ -1827,7 +1827,7 @@ cupsGetNamedDest(http_t     *http,	/* I - Connection to server or @code CUPS_HTT
       DEBUG_puts("1cupsGetNamedDest: Asking server for default printer...");
     }
     else
-      DEBUG_printf(("1cupsGetNamedDest: Using name=\"%s\"...", name));
+      DEBUG_printf(("1cupsGetNamedDest: Using dest_name=\"%s\"...", dest_name));
   }
 
  /*
@@ -2057,6 +2057,35 @@ cupsSetDests2(http_t      *http,	/* I - Connection to server or @code CUPS_HTTP_
 
   if (!num_dests || !dests)
     return (-1);
+
+ /*
+  * See if the default destination has a printer URI associated with it...
+  */
+
+  if ((dest = cupsGetDest(/*name*/NULL, /*instance*/NULL, num_dests, dests)) != NULL && !cupsGetOption("printer-uri-supported", dest->num_options, dest->options))
+  {
+   /*
+    * No, try adding it...
+    */
+
+    const char	*uri;			/* Device/printer URI */
+
+    if ((uri = cupsGetOption("device-uri", dest->num_options, dest->options)) != NULL)
+    {
+      char	tempresource[1024];	/* Temporary resource path */
+
+#ifdef HAVE_DNSSD
+      if (strstr(uri, "._tcp"))
+        uri = cups_dnssd_resolve(dest, uri, /*msec*/30000, /*cancel*/NULL, /*cb*/NULL, /*user_data*/NULL);
+#endif /* HAVE_DNSSD */
+
+      if (uri)
+	uri = _cupsCreateDest(dest->name, cupsGetOption("printer-info", dest->num_options, dest->options), NULL, uri, tempresource, sizeof(tempresource));
+
+      if (uri)
+	dest->num_options = cupsAddOption("printer-uri-supported", uri, dest->num_options, &dest->options);
+    }
+  }
 
  /*
   * Get the server destinations...
@@ -3148,8 +3177,7 @@ cups_dnssd_query_cb(
       }
       else if (!saw_printer_type)
       {
-	if (!_cups_strcasecmp(key, "air") &&
-		 !_cups_strcasecmp(value, "t"))
+	if (!_cups_strcasecmp(key, "air") && _cups_strcasecmp(value, "none"))
 	  type |= CUPS_PRINTER_AUTHENTICATED;
 	else if (!_cups_strcasecmp(key, "bind") &&
 		 !_cups_strcasecmp(value, "t"))

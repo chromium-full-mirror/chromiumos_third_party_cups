@@ -1,7 +1,7 @@
 /*
  * Private definitions for CUPS.
  *
- * Copyright © 2021 by OpenPrinting.
+ * Copyright © 2020-2024 by OpenPrinting.
  * Copyright © 2007-2019 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
@@ -293,7 +293,7 @@ extern int 		_cupsSearchFilterLatest(const char *filter_name,
 			                        size_t     full_path_size);
 extern void		_cupsSetDefaults(void) _CUPS_INTERNAL;
 extern void		_cupsSetError(ipp_status_t status, const char *message, int localize) _CUPS_PRIVATE;
-extern void		_cupsSetHTTPError(http_status_t status) _CUPS_INTERNAL;
+extern void		_cupsSetHTTPError(http_t *http, http_status_t status) _CUPS_INTERNAL;
 #  ifdef HAVE_GSSAPI
 extern int		_cupsSetNegotiateAuthString(http_t *http, const char *method, const char *resource) _CUPS_PRIVATE;
 #  endif /* HAVE_GSSAPI */

@@ -1,7 +1,7 @@
 /*
  * Main loop for the CUPS scheduler.
  *
- * Copyright © 2021-2023 by OpenPrinting.
+ * Copyright © 2020-2024 by OpenPrinting.
  * Copyright © 2007-2019 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
@@ -526,22 +526,20 @@ main(int  argc,				/* I - Number of command-line args */
 #endif /* HAVE_DBUS_THREADS_INIT */
 
  /*
-  * Set the maximum number of files...
+  * Set the maximum number of files, which for practical reasons can be limited
+  * to the number of TCP port number values (64k-1)...
   */
 
+  limit.rlim_max = 0;
   getrlimit(RLIMIT_NOFILE, &limit);
 
 #if !defined(HAVE_POLL) && !defined(HAVE_EPOLL) && !defined(HAVE_KQUEUE)
-  if (limit.rlim_max > FD_SETSIZE)
+  if ((MaxFDs = limit.rlim_max) > FD_SETSIZE || MaxFDs <= 0)
     MaxFDs = FD_SETSIZE;
-  else
-#endif /* !HAVE_POLL && !HAVE_EPOLL && !HAVE_KQUEUE */
-#ifdef RLIM_INFINITY
-  if (limit.rlim_max == RLIM_INFINITY)
-    MaxFDs = 16384;
-  else
+#else
+  if ((MaxFDs = limit.rlim_max) > 65535 || MaxFDs <= 0)
+    MaxFDs = 65535;
 #endif /* RLIM_INFINITY */
-    MaxFDs = limit.rlim_max;
 
   limit.rlim_cur = (rlim_t)MaxFDs;
 
@@ -2085,6 +2083,21 @@ service_checkin(void)
     }
   }
 #endif /* HAVE_LAUNCHD */
+
+  if (cupsArrayCount(Listeners) == 0)
+  {
+   /*
+    * No listeners!
+    */
+
+    cupsdLogMessage(CUPSD_LOG_EMERG, "No listener sockets present.");
+
+   /*
+    * Commit suicide...
+    */
+
+    cupsdEndProcess(getpid(), 0);
+  }
 }
 
 

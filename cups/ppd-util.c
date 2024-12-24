@@ -1,6 +1,7 @@
 /*
  * PPD utilities for CUPS.
  *
+ * Copyright © 2020-2024 by OpenPrinting.
  * Copyright © 2007-2018 by Apple Inc.
  * Copyright © 1997-2006 by Easy Software Products.
  *
@@ -489,7 +490,7 @@ cupsGetPPD3(http_t     *http,		/* I  - HTTP connection or @code CUPS_HTTP_DEFAUL
   }
   else if (status != HTTP_STATUS_NOT_MODIFIED)
   {
-    _cupsSetHTTPError(status);
+    _cupsSetHTTPError(http2, status);
 
     if (buffer[0])
       unlink(buffer);

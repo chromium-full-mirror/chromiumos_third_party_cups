@@ -1,6 +1,7 @@
 /*
  * PPD command interpreter for CUPS.
  *
+ * Copyright © 2020-2024 by OpenPrinting.
  * Copyright © 2007-2018 by Apple Inc.
  * Copyright © 1993-2007 by Easy Software Products.
  *
@@ -727,7 +728,10 @@ copy_stack(_cups_ps_stack_t *st,	/* I - Stack */
 
   while (c > 0)
   {
-    if (!push_stack(st, st->objs + n))
+    _cups_ps_obj_t	temp;		/* Temporary copy of object */
+
+    temp = st->objs[n];
+    if (!push_stack(st, &temp))
       return (-1);
 
     n ++;
@@ -1045,6 +1049,8 @@ scan_ps(_cups_ps_stack_t *st,		/* I  - Stack */
   int			parens;		/* Parenthesis nesting level */
 
 
+  if (!*ptr)
+    return (NULL);
  /*
   * Skip leading whitespace...
   */
@@ -1113,7 +1119,19 @@ scan_ps(_cups_ps_stack_t *st,		/* I  - Stack */
 
 	    cur ++;
 
-            if (*cur == 'b')
+	   /*
+	    * Return NULL if we reached NULL terminator, a lone backslash
+	    * is not a valid character in PostScript.
+	    */
+
+	    if (!*cur)
+	    {
+	      *ptr = NULL;
+
+	      return (NULL);
+	    }
+
+	    if (*cur == 'b')
 	      *valptr++ = '\b';
 	    else if (*cur == 'f')
 	      *valptr++ = '\f';

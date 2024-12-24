@@ -1,10 +1,12 @@
 /*
  * Policy routines for the CUPS scheduler.
  *
- * Copyright 2007-2011, 2014 by Apple Inc.
- * Copyright 1997-2006 by Easy Software Products, all rights reserved.
+ * Copyright © 2020-2024 by OpenPrinting.
+ * Copyright © 2007-2011, 2014 by Apple Inc.
+ * Copyright © 1997-2006 by Easy Software Products, all rights reserved.
  *
- * Licensed under Apache License v2.0.  See the file "LICENSE" for more information.
+ * Licensed under Apache License v2.0.  See the file "LICENSE" for more
+ * information.
  */
 
 /*
@@ -316,6 +318,10 @@ cupsdGetPrivateAttrs(
 #endif /* DEBUG */
 
     return (NULL);
+  }
+  else if (name && !_cups_strcasecmp(name, "all"))
+  {
+    return (attrs_ptr);
   }
 
  /*

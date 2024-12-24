@@ -1,7 +1,7 @@
 /*
  * Get/put file functions for CUPS.
  *
- * Copyright © 2021-2023 by OpenPrinting.
+ * Copyright © 2020-2024 by OpenPrinting.
  * Copyright © 2007-2018 by Apple Inc.
  * Copyright © 1997-2006 by Easy Software Products.
  *
@@ -199,7 +199,7 @@ cupsGetFd(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_DEFA
   }
   else
   {
-    _cupsSetHTTPError(status);
+    _cupsSetHTTPError(http, status);
     httpFlush(http);
   }
 
@@ -500,7 +500,7 @@ cupsPutFd(http_t     *http,		/* I - Connection to server or @code CUPS_HTTP_DEFA
 
   if (status != HTTP_STATUS_CREATED)
   {
-    _cupsSetHTTPError(status);
+    _cupsSetHTTPError(http, status);
     httpFlush(http);
   }
 
