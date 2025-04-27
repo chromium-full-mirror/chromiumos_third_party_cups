@@ -610,6 +610,22 @@ TEST_F(PrintJob, RollPrintingTrimHwasung) {
   EXPECT_EQ(IPP_FINISHINGS_NONE, DefaultFinishings());
 }
 
+TEST_F(PrintJob, RollPrintingTrimBrother) {
+  SetPrinter(R"(*PPD-Adobe: 4.3
+*OpenUI *BrCutAtEnd/Cut at end: PickOne
+*OrderDependency: 21 AnySetup  *BrCutAtEnd
+*DefaultBrCutAtEnd: ON
+*BrCutAtEnd OFF/OFF: "          "
+*BrCutAtEnd ON/ON: "          "
+*CloseUI: *BrCutAtEnd)");
+  EXPECT_TRUE(CheckOptionSupported("finishings", "3"));
+  EXPECT_TRUE(CheckOptionSupported("finishings", "11"));
+
+  EXPECT_EQ("BrCutAtEnd=OFF", Finishings("none").Filter());
+  EXPECT_EQ("BrCutAtEnd=ON", Finishings("trim").Filter());
+  EXPECT_EQ(IPP_FINISHINGS_TRIM, DefaultFinishings());
+}
+
 TEST_F(PrintJob, RollPrintingTrimTSC) {
   SetPrinter(R"(*PPD-Adobe: 4.3
 *OpenUI *PostAction/Post-Print Action: PickOne

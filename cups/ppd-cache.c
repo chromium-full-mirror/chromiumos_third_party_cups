@@ -2048,6 +2048,7 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
         || (ppd_option = ppdFindOption(ppd, "DocCutType")) != NULL
         || (ppd_option = ppdFindOption(ppd, "CutType")) != NULL
         || (ppd_option = ppdFindOption(ppd, "CutterMode")) != NULL
+        || (ppd_option = ppdFindOption(ppd, "BrCutAtEnd")) != NULL
         || (ppd_option = ppdFindOption(ppd, "Cutting")) != NULL
         || (ppd_option = ppdFindOption(ppd, "PostAction")) != NULL)
     {
@@ -2096,6 +2097,10 @@ _ppdCacheCreateWithPPD(ppd_file_t *ppd)	/* I - PPD file */
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "3CutDocRecovery");
       else if (ppdFindChoice(ppd_option, "4CutDocRecovery"))
         pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "CutterMode", "4CutDocRecovery");
+
+      // BrCutAtEnd (Brother)
+      if (ppdFindChoice(ppd_option, "ON"))
+        pwg_add_finishing(pc->finishings, IPP_FINISHINGS_TRIM, "BrCutAtEnd", "ON");
 
       // PostAction (TSC)
       if (ppdFindChoice(ppd_option, "PartialCut"))

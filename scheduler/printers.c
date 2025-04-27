@@ -5766,6 +5766,11 @@ static int add_trim_finishings_mappings(
       }
     }
   }
+  // Brother
+  else if ((option = ppdFindOption(ppd, "BrCutAtEnd")) != NULL) {
+    choice_trim = ppdFindChoice(option, "ON");
+    choice_none = ppdFindChoice(option, "OFF");
+  }
   // Cut option used in generic ESC/POS ppd file.
   else if ((option = ppdFindOption(ppd, "Cutting")) != NULL) {
       if ((choice_trim = ppdFindChoice(option, "2CutAtTheEndOfJob")) == NULL) {
