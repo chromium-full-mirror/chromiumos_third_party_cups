@@ -40,7 +40,7 @@ int create_file_descriptor_with_content(const uint8_t* data, size_t size) {
     return -1;
   }
   // save content to the file descriptor
-  if (!base::WriteFileDescriptor(fd_tmp, base::make_span(data, size))) {
+  if (!base::WriteFileDescriptor(fd_tmp, base::span(data, size))) {
     close(fd_tmp);
     return -2;
   }
