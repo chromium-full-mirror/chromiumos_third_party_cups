@@ -4014,6 +4014,14 @@ get_options(cupsd_job_t *job,		/* I - Job */
   * Then allocate/reallocate the option buffer as needed...
   */
 
+  /*
+   * b/446657357#comment2: this code is called in a way where `optlength == 0`
+   * occasionally. Since we unconditionally want `optptr` to be a
+   * nul-terminated string, ensure there's room for the terminator.
+   */
+  if (!optlength)
+    optlength = 1;
+
   optptr = malloc(optlength);
 
   if (!optptr) {
