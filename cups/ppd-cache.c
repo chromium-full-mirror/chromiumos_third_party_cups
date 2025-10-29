@@ -1,7 +1,7 @@
 /*
  * PPD cache implementation for CUPS.
  *
- * Copyright © 2022-2024 by OpenPrinting.
+ * Copyright © 2022-2025 by OpenPrinting.
  * Copyright © 2010-2021 by Apple Inc.
  *
  * Licensed under Apache License v2.0.  See the file "LICENSE" for more
@@ -3458,92 +3458,8 @@ _ppdCreateFromIPP2(
       mptr --;
       if (*mptr == ' ')
 	*mptr = '\0';
-    }
-
-    if (!make[0])
-    {
-     /*
-      * Use a default make and model if nothing remains...
-      */
-
-      strlcpy(make, "Unknown", sizeof(make));
-    }
-  }
-  else
-  {
-   /*
-    * Use a default make and model...
-    */
-
-    strlcpy(make, "Unknown", sizeof(make));
-  }
-
-  if (!_cups_strncasecmp(make, "Hewlett Packard ", 16) || !_cups_strncasecmp(make, "Hewlett-Packard ", 16))
-  {
-   /*
-    * Normalize HP printer make and model...
-    */
-
-    model = make + 16;
-    strlcpy(make, "HP", sizeof(make));
-
-    if (!_cups_strncasecmp(model, "HP ", 3))
-      model += 3;
-  }
-  else if ((mptr = strchr(make, ' ')) != NULL)
-  {
-   /*
-    * Separate "MAKE MODEL"...
-    */
-
-    while (*mptr && *mptr == ' ')
-      *mptr++ = '\0';
-
-    model = mptr;
-  }
-  else
-  {
-   /*
-    * No separate model name...
-    */
-
-    model = "Printer";
-  }
-
- /*
-  * Get a sanitized make and model...
-  */
-
-  if ((attr = ippFindAttribute(supported, "printer-make-and-model", IPP_TAG_TEXT)) != NULL && ippValidateAttribute(attr))
-  {
-   /*
-    * Sanitize the model name to only contain PPD-safe characters.
-    */
-
-    strlcpy(make, ippGetString(attr, 0, NULL), sizeof(make));
-
-    for (mptr = make; *mptr; mptr ++)
-    {
-      if (*mptr < ' ' || *mptr >= 127 || *mptr == '\"')
-      {
-       /*
-	* Truncate the make and model on the first bad character...
-	*/
-
-	*mptr = '\0';
-	break;
-      }
-    }
-
-    while (mptr > make)
-    {
-     /*
-      * Strip trailing whitespace...
-      */
-
-      mptr --;
-      if (*mptr == ' ')
-	*mptr = '\0';
+      else
+        break;
     }
 
     if (!make[0])
@@ -6248,11 +6164,13 @@ pwg_ppdize_resolution(
   }
 }
 
+
 /*
  * 'pwg_destroy_size_trackers()' - Frees a previously allocated array of
  *                                 pwg_media_size_tracker_s and all its
  *                                 contents.
  */
+
 static void
 pwg_destroy_size_trackers(
     struct pwg_media_size_tracker_s *trackers,  /* I - trackers */
