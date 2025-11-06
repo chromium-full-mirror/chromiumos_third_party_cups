@@ -2,6 +2,40 @@ CHANGES - OpenPrinting CUPS
 ===========================
 
 
+Changes in CUPS v2.4.14 (2025-09-11)
+------------------------------------
+
+- Fixed installation of localized index.html and templates (Issue #1362)
+
+
+Changes in CUPS v2.4.13 (2025-09-11)
+------------------------------------
+
+- Blocked authentication using alternate methods in cupsd (CVE-2025-58060)
+- Fixed extension tag handling in `ipp_read_io()` in libcups (CVE-2025-58364)
+- Added `print-as-raster` printer and job attributes for forcing rasterization
+  (Issue #1282)
+- Updated documentation (Issue #1086)
+- Updated IPP backend to try a sanitized user name if the printer/server does
+  not like the value (Issue #1145)
+- Updated the scheduler to send the "printer-added" or "printer-modified" events
+  whenever an IPP Everywhere PPD is installed (Issue #1244)
+- Updated the scheduler to send the "printer-modified" event whenever the system
+  default printer is changed (Issue #1246)
+- Fixed a memory leak in `httpClose` (Issue #1223)
+- Fixed missing commas in `ippCreateRequestedArray` (Issue #1234)
+- Fixed subscription issues in the scheduler and D-Bus notifier (Issue #1235)
+- Fixed media-default reporting for custom sizes (Issue #1238)
+- Fixed support for IPP/PPD options with periods or underscores (Issue #1249)
+- Fixed parsing of real numbers in PPD compiler source files (Issue #1263)
+- Fixed scheduler freezing with zombie clients (Issue #1264)
+- Fixed support for the server name in the ErrorLog filename (Issue #1277)
+- Fixed job cleanup after daemon restart (Issue #1315)
+- Fixed handling of buggy DYMO USB printer serial numbers (Issue #1338)
+- Fixed unreachable block in IPP backend (Issue #1351)
+- Fixed memory leak in _cupsConvertOptions (Issue #1354)
+
+
 Changes in CUPS v2.4.12 (2025-04-08)
 ------------------------------------
 
@@ -15,7 +49,8 @@ Changes in CUPS v2.4.12 (2025-04-08)
 - Fixed a potential "lost PPD" condition in the scheduler (Issue #1109)
 - Fixed a compressed file error handling bug (Issue #1070)
 - Fixed a bug in the make-and-model whitespace trimming code (Issue #1096)
-- Fixed a removal of IPP Everywhere permanent queue if installation failed (Issue #1102)
+- Fixed a removal of IPP Everywhere permanent queue if installation failed
+  (Issue #1102)
 - Fixed `ServerToken None` in scheduler (Issue #1111)
 - Fixed invalid IPP keyword values created from PPD option names (Issue #1118)
 - Fixed handling of "media" and "PageSize" in the same print request

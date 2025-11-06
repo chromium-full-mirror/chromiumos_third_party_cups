@@ -1523,6 +1523,9 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
     return (NULL);
   }
 
+  if (ippGetBoolean(ippFindAttribute(con->request, "print-as-raster", IPP_TAG_BOOLEAN), 0))
+    job->print_as_raster = 1;
+
   job->dtype   = printer->type & (CUPS_PRINTER_CLASS | CUPS_PRINTER_REMOTE);
   job->attrs   = con->request;
   job->dirty   = 1;
@@ -3617,12 +3620,17 @@ static int				/* O - 1 if OK, 0 if not */
 check_rss_recipient(
     const char *recipient)		/* I - Recipient URI */
 {
+  int			i,		/* Looping var */
+			scount;		/* Number of subscriptions */
   cupsd_subscription_t	*sub;		/* Current subscription */
 
 
-  for (sub = (cupsd_subscription_t *)cupsArrayFirst(Subscriptions);
-       sub;
-       sub = (cupsd_subscription_t *)cupsArrayNext(Subscriptions))
+  _cupsRWLockRead(&SubscriptionsLock);
+
+  for (i = 0, scount = cupsArrayCount(Subscriptions); i < scount; i ++)
+  {
+    sub = (cupsd_subscription_t *)cupsArrayIndex(Subscriptions, i);
+
     if (sub->recipient)
     {
      /*
@@ -3638,6 +3646,9 @@ check_rss_recipient(
       if (*r1 == *r2)
         return (0);
     }
+  }
+
+  _cupsRWUnlock(&SubscriptionsLock);
 
   return (1);
 }
@@ -5059,9 +5070,9 @@ copy_subscription_attrs(
   const char		*name;		/* Current event name */
 
 
-  cupsdLogMessage(CUPSD_LOG_DEBUG2,
-                  "copy_subscription_attrs(con=%p, sub=%p, ra=%p, exclude=%p)",
-		  (void *)con, (void *)sub, (void *)ra, (void *)exclude);
+  cupsdLogMessage(CUPSD_LOG_DEBUG2, "copy_subscription_attrs(con=%p, sub=%p, ra=%p, exclude=%p)", (void *)con, (void *)sub, (void *)ra, (void *)exclude);
+
+  _cupsRWLockRead(&sub->lock);
 
  /*
   * Copy the subscription attributes to the response using the
@@ -5152,6 +5163,8 @@ copy_subscription_attrs(
   if (!ra || cupsArrayFind(ra, "notify-subscription-id"))
     ippAddInteger(con->response, IPP_TAG_SUBSCRIPTION, IPP_TAG_INTEGER,
                   "notify-subscription-id", sub->id);
+
+  _cupsRWUnlock(&sub->lock);
 }
 
 
@@ -5262,6 +5275,7 @@ create_local_bg_thread(
 		*response = NULL;	/* Response from printer */
   ipp_attribute_t *attr;		/* Attribute in response */
   ipp_status_t	status;			/* Status code */
+  cupsd_eventmask_t event;		/* Event (CUPSD_EVENT_PRINTER_ADDED or CUPSD_EVENT_PRINTER_MODIFIED) */
   static const char * const pattrs[] =	/* Printer attributes we need */
   {
     "all",
@@ -5429,7 +5443,6 @@ create_local_bg_thread(
     goto finish_response;
   }
 
-  // TODO: Grab printer icon file...
   httpClose(http);
 
   // Validate response from printer...
@@ -5459,6 +5472,10 @@ create_local_bg_thread(
 
     _cupsRWUnlock(&printer->lock);
 
+   /*
+    * Try opening the created PPD file...
+    */
+
     if ((from = cupsFileOpen(fromppd, "r")) == NULL)
     {
       cupsdLogMessage(CUPSD_LOG_ERROR, "%s: Unable to read generated PPD: %s", printer->name, strerror(errno));
@@ -5473,7 +5490,17 @@ create_local_bg_thread(
       goto finish_response;
     }
 
+   /*
+    * Then the destination PPD for the queue...
+    */
+
     snprintf(toppd, sizeof(toppd), "%s/ppd/%s.ppd", ServerRoot, printer->name);
+
+    if (access(toppd, 0))		/* Determine whether to log an "added" or "modified" event */
+      event = CUPSD_EVENT_PRINTER_ADDED;
+    else
+      event = CUPSD_EVENT_PRINTER_MODIFIED;
+
     if ((to = cupsdCreateConfFile(toppd, ConfigFilePerm)) == NULL)
     {
       cupsdLogMessage(CUPSD_LOG_ERROR, "%s: Unable to create PPD for printer: %s", printer->name, strerror(errno));
@@ -5489,6 +5516,10 @@ create_local_bg_thread(
       goto finish_response;
     }
 
+   /*
+    * Copy the PPD file over...
+    */
+
     while (cupsFileGets(from, line, sizeof(line)))
       cupsFilePrintf(to, "%s\n", line);
 
@@ -5498,13 +5529,18 @@ create_local_bg_thread(
       _cupsRWLockWrite(&printer->lock);
 
       printer->config_time = time(NULL);
-      printer->state       = IPP_PSTATE_IDLE;
-      printer->accepting   = 1;
+
+      if (printer->temporary)
+      {
+	printer->state     = IPP_PSTATE_IDLE;
+	printer->accepting = 1;
+      }
 
       _cupsRWUnlock(&printer->lock);
 
       cupsdSetPrinterAttrs(printer);
 
+      cupsdAddEvent(event, printer, NULL, "Printer \"%s\" was %s.", printer->name, event == CUPSD_EVENT_PRINTER_ADDED ? "added" : "modified");
       cupsdAddEvent(CUPSD_EVENT_PRINTER_CONFIG, printer, NULL, "Printer \"%s\" is now available.", printer->name);
       cupsdLogMessage(CUPSD_LOG_INFO, "Printer \"%s\" is now available.", printer->name);
     }
@@ -7944,7 +7980,9 @@ get_subscriptions(cupsd_client_t  *con,	/* I - Client connection */
                   ipp_attribute_t *uri)	/* I - Printer/job URI */
 {
   http_status_t		status;		/* Policy status */
-  int			count;		/* Number of subscriptions */
+  int			i,		/* Looping var */
+			scount;		/* Total number of subscriptions */
+  int			count;		/* Number of subscriptions returned */
   int			limit;		/* Limit */
   cupsd_subscription_t	*sub;		/* Subscription */
   cups_array_t		*ra;		/* Requested attributes array */
@@ -8068,9 +8106,12 @@ get_subscriptions(cupsd_client_t  *con,	/* I - Client connection */
   else
     username[0] = '\0';
 
-  for (sub = (cupsd_subscription_t *)cupsArrayFirst(Subscriptions), count = 0;
-       sub;
-       sub = (cupsd_subscription_t *)cupsArrayNext(Subscriptions))
+  _cupsRWLockRead(&SubscriptionsLock);
+
+  for (i = 0, count = 0, scount = cupsArrayCount(Subscriptions); i < scount; i ++)
+  {
+    sub = (cupsd_subscription_t *)cupsArrayIndex(Subscriptions, i);
+
     if ((!printer || sub->dest == printer) && (!job || sub->job == job) &&
         (!username[0] || !_cups_strcasecmp(username, sub->owner)))
     {
@@ -8086,6 +8127,9 @@ get_subscriptions(cupsd_client_t  *con,	/* I - Client connection */
       if (limit && count >= limit)
         break;
     }
+  }
+
+  _cupsRWUnlock(&SubscriptionsLock);
 
   cupsArrayDelete(ra);
 
@@ -9459,6 +9503,8 @@ renew_subscription(
   * Renew the subscription...
   */
 
+  _cupsRWLockWrite(&sub->lock);
+
   lease = ippFindAttribute(con->request, "notify-lease-duration",
                            IPP_TAG_INTEGER);
 
@@ -9477,10 +9523,12 @@ renew_subscription(
 
   cupsdMarkDirty(CUPSD_DIRTY_SUBSCRIPTIONS);
 
-  con->response->request.status.status_code = IPP_OK;
+  con->response->request.status.status_code = IPP_STATUS_OK;
 
   ippAddInteger(con->response, IPP_TAG_SUBSCRIPTION, IPP_TAG_INTEGER,
                 "notify-lease-duration", sub->lease);
+
+  _cupsRWUnlock(&sub->lock);
 }
 
 
@@ -10490,10 +10538,10 @@ set_default(cupsd_client_t  *con,	/* I - Client connection */
   DefaultPrinter = printer;
 
   if (oldprinter)
-    cupsdAddEvent(CUPSD_EVENT_PRINTER_STATE, oldprinter, NULL,
+    cupsdAddEvent(CUPSD_EVENT_PRINTER_MODIFIED, oldprinter, NULL,
                   "%s is no longer the default printer.", oldprinter->name);
 
-  cupsdAddEvent(CUPSD_EVENT_PRINTER_STATE, printer, NULL,
+  cupsdAddEvent(CUPSD_EVENT_PRINTER_MODIFIED, printer, NULL,
 		"%s is now the default printer.", printer->name);
 
   cupsdMarkDirty(CUPSD_DIRTY_PRINTERS | CUPSD_DIRTY_CLASSES |

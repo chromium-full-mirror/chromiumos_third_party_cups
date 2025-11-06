@@ -575,6 +575,9 @@ cupsdCreateCommonData(void)
   /* pdl-override-supported */
   ippAddString(CommonData, IPP_TAG_PRINTER, IPP_CONST_TAG(IPP_TAG_KEYWORD), "pdl-override-supported", NULL, "attempted");
 
+  /* print-as-raster-supported */
+  ippAddBoolean(CommonData, IPP_TAG_PRINTER, "print-as-raster-supported", 1);
+
   /* print-scaling-supported */
   ippAddStrings(CommonData, IPP_TAG_PRINTER, IPP_CONST_TAG(IPP_TAG_KEYWORD), "print-scaling-supported", sizeof(print_scaling) / sizeof(print_scaling[0]), NULL, print_scaling);
 
@@ -4210,7 +4213,7 @@ load_ppd(cupsd_printer_t *p)		/* I - Printer */
       */
 
       if ((size = ppdPageSize(ppd, NULL)) != NULL)
-        pwgsize = _ppdCacheGetSize(p->pc, size->name);
+	pwgsize = _ppdCacheGetSize(p->pc, size->name, size);
       else
         pwgsize = NULL;
 
