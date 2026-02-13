@@ -1633,8 +1633,8 @@ open_device(usb_printer_t *printer,	/* I - Printer */
     if ((errcode =
 	 libusb_detach_kernel_driver(printer->handle, printer->iface)) < 0)
     {
-      fprintf(stderr, "DEBUG: Failed to detach \"usblp\" module from %04x:%04x\n",
-	      devdesc.idVendor, devdesc.idProduct);
+      fprintf(stderr, "DEBUG: Failed to detach \"usblp\" module from %04x:%04x, err=%d\n",
+	      devdesc.idVendor, devdesc.idProduct, errcode);
       goto error;
     }
   }
@@ -1671,8 +1671,8 @@ open_device(usb_printer_t *printer,	/* I - Printer */
        libusb_get_config_descriptor (printer->device, printer->conf, &confptr))
       < 0)
   {
-    fprintf(stderr, "DEBUG: Failed to get config descriptor for %04x:%04x\n",
-	    devdesc.idVendor, devdesc.idProduct);
+    fprintf(stderr, "DEBUG: Failed to get config descriptor for %04x:%04x, err=%d\n",
+	    devdesc.idVendor, devdesc.idProduct, errcode);
     goto error;
   }
   number1 = confptr->bConfigurationValue;
@@ -1690,8 +1690,8 @@ open_device(usb_printer_t *printer,	/* I - Printer */
       */
 
       if (errcode != LIBUSB_ERROR_BUSY)
-        fprintf(stderr, "DEBUG: Failed to set configuration %d for %04x:%04x\n",
-		number1, devdesc.idVendor, devdesc.idProduct);
+        fprintf(stderr, "DEBUG: Failed to set configuration %d for %04x:%04x, err=%d\n",
+		number1, devdesc.idVendor, devdesc.idProduct, errcode);
     }
   }
 
@@ -1707,16 +1707,16 @@ open_device(usb_printer_t *printer,	/* I - Printer */
     if (errcode != LIBUSB_ERROR_BUSY)
     {
       fprintf(stderr,
-              "DEBUG: Failed to claim interface %d for %04x:%04x: %s\n",
-              number1, devdesc.idVendor, devdesc.idProduct, strerror(errno));
+              "DEBUG: Failed to claim interface %d for %04x:%04x: %s, err=%d\n",
+              number1, devdesc.idVendor, devdesc.idProduct, strerror(errno), errcode);
 
       goto error;
     }
     else if ((errcode = libusb_detach_kernel_driver(printer->handle, printer->iface)) < 0)
     {
       fprintf(stderr,
-              "DEBUG: Failed to detach \"usblp\" module from %04x:%04x\n",
-              devdesc.idVendor, devdesc.idProduct);
+              "DEBUG: Failed to detach \"usblp\" module from %04x:%04x, err=%d\n",
+              devdesc.idVendor, devdesc.idProduct, errcode);
 
       goto error;
     }
@@ -1744,8 +1744,8 @@ open_device(usb_printer_t *printer,	/* I - Printer */
       {
         fprintf(stderr,
                 "DEBUG: Failed to set alternate interface %d for %04x:%04x: "
-                "%s\n",
-                number2, devdesc.idVendor, devdesc.idProduct, strerror(errno));
+                "%s, err=%d\n",
+                number2, devdesc.idVendor, devdesc.idProduct, strerror(errno), errcode);
 
 	goto error;
       }
