@@ -1,7 +1,7 @@
 /*
  * Configuration file for CUPS and Xcode.
  *
- * Copyright © 2021-2025 by OpenPrinting
+ * Copyright © 2021-2026 by OpenPrinting
  * Copyright © 2007-2019 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products.
  *
@@ -19,8 +19,8 @@
  * Version of software...
  */
 
-#define CUPS_SVERSION "CUPS v2.4.14"
-#define CUPS_MINIMAL "CUPS/2.4.14"
+#define CUPS_SVERSION "CUPS v2.4.18"
+#define CUPS_MINIMAL "CUPS/2.4.18"
 
 
 /*
@@ -86,6 +86,13 @@
  */
 
 #define CUPS_DEFAULT_ERROR_POLICY "stop-printer"
+
+
+/*
+ * Default PeerCred value...
+ */
+
+#define CUPS_DEFAULT_PEER_CRED "on"
 
 
 /*

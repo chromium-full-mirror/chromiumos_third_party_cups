@@ -1,7 +1,7 @@
 /*
  * API definitions for CUPS.
  *
- * Copyright © 2021-2025 by OpenPrinting.
+ * Copyright © 2021-2026 by OpenPrinting.
  * Copyright © 2007-2020 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products.
  *
@@ -43,11 +43,10 @@ extern "C" {
  * Constants...
  */
 
-#  define CUPS_VERSION			2.0414
+#  define CUPS_VERSION			2.0418
 #  define CUPS_VERSION_MAJOR		2
 #  define CUPS_VERSION_MINOR		4
-#  define CUPS_VERSION_PATCH		14
-
+#  define CUPS_VERSION_PATCH		18
 #  define CUPS_BC_FD			3
 					/* Back-channel file descriptor for
 					 * select/poll */

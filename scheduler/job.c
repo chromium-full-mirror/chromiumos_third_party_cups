@@ -1,7 +1,7 @@
 /*
  * Job management routines for the CUPS scheduler.
  *
- * Copyright © 2020-2025 by OpenPrinting.
+ * Copyright © 2020-2026 by OpenPrinting.
  * Copyright © 2007-2019 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
@@ -1224,35 +1224,39 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
 	}
 	else
 	{
-	  job->print_pipes[0] = -1;
-	  if (!strcmp(job->printer->device_uri, "file:/dev/null") ||
-	      !strcmp(job->printer->device_uri, "file:///dev/null"))
-	    job->print_pipes[1] = -1;
-	  else
-	  {
-	    if (!strncmp(job->printer->device_uri, "file:/dev/", 10))
-	      job->print_pipes[1] = open(job->printer->device_uri + 5,
-	                        	 O_WRONLY | O_EXCL);
-	    else if (!strncmp(job->printer->device_uri, "file:///dev/", 12))
-	      job->print_pipes[1] = open(job->printer->device_uri + 7,
-	                        	 O_WRONLY | O_EXCL);
-	    else if (!strncmp(job->printer->device_uri, "file:///", 8))
-	      job->print_pipes[1] = open(job->printer->device_uri + 7,
-	                        	 O_WRONLY | O_CREAT | O_TRUNC, 0600);
-	    else
-	      job->print_pipes[1] = open(job->printer->device_uri + 5,
-	                        	 O_WRONLY | O_CREAT | O_TRUNC, 0600);
+	  char	scheme[32],		/* URI scheme */
+		userpass[32],		/* URI username:password */
+		host[256],		/* URI hostname */
+		resource[1024];		/* URI resource path (filename) */
+	  int	port;			/* URI port number */
 
-	    if (job->print_pipes[1] < 0)
+          httpSeparateURI(HTTP_URI_CODING_ALL, job->printer->device_uri, scheme, sizeof(scheme), userpass, sizeof(userpass), host, sizeof(host), &port, resource, sizeof(resource));
+
+	  job->print_pipes[0] = -1;
+	  job->print_pipes[1] = -1;
+
+	  if (strcmp(resource, "/dev/null"))
+	  {
+	    if (!FileDevice)
 	    {
-	      abort_message = "Stopping job because the scheduler could not "
-	                      "open the output file.";
+	      abort_message = "Stopping job because file: output is disabled.";
 
               goto abort_job;
 	    }
+	    else if ((job->print_pipes[1] = open(resource, O_WRONLY | O_EXCL)) < 0)
+	    {
+	      abort_message = "Stopping job because the scheduler could not open the output file.";
 
-	    fcntl(job->print_pipes[1], F_SETFD,
-        	  fcntl(job->print_pipes[1], F_GETFD) | FD_CLOEXEC);
+              goto abort_job;
+	    }
+	    else
+	    {
+	     /*
+	      * Close this file on execute...
+	      */
+
+	      fcntl(job->print_pipes[1], F_SETFD, fcntl(job->print_pipes[1], F_GETFD) | FD_CLOEXEC);
+	    }
           }
 	}
       }
@@ -4241,11 +4245,23 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	  case IPP_TAG_CHARSET :
 	  case IPP_TAG_LANGUAGE :
 	  case IPP_TAG_URI :
-	      for (valptr = attr->values[i].string.text; *valptr;)
+	      for (valptr = attr->values[i].string.text; *valptr; valptr ++)
 	      {
-	        if (strchr(" \t\n\\\'\"", *valptr))
-		  *optptr++ = '\\';
-		*optptr++ = *valptr++;
+	       /*
+	        * Convert tabs and newlines to spaces, filter out control chars,
+	        * and escape \, ', and ".
+	        */
+
+	        if (isspace(*valptr & 255))
+	        {
+	          *optptr++ = ' ';
+	        }
+	        else if ((*valptr & 255) >= ' ' && *valptr != 0x7f)
+	        {
+	          if (strchr("\\\'\"", *valptr))
+		    *optptr++ = '\\';
+		  *optptr++ = *valptr;
+		}
 	      }
 
 	      *optptr = '\0';
@@ -4305,18 +4321,6 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
 
   for (attr = ipp->attrs; attr != NULL; attr = attr->next)
   {
-   /*
-    * Skip attributes that won't be sent to filters...
-    */
-
-    if (attr->value_tag == IPP_TAG_NOVALUE ||
-	attr->value_tag == IPP_TAG_MIMETYPE ||
-	attr->value_tag == IPP_TAG_NAMELANG ||
-	attr->value_tag == IPP_TAG_TEXTLANG ||
-	attr->value_tag == IPP_TAG_URI ||
-	attr->value_tag == IPP_TAG_URISCHEME)
-      continue;
-
    /*
     * Add space for a leading space and commas between each value.
     * For the first attribute, the leading space isn't used, so the
@@ -4392,10 +4396,14 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
 
       case IPP_TAG_TEXT :
       case IPP_TAG_NAME :
+      case IPP_TAG_TEXTLANG :
+      case IPP_TAG_NAMELANG :
+      case IPP_TAG_MIMETYPE :
       case IPP_TAG_KEYWORD :
       case IPP_TAG_CHARSET :
       case IPP_TAG_LANGUAGE :
       case IPP_TAG_URI :
+      case IPP_TAG_URISCHEME :
          /*
 	  * Strings can contain characters that need quoting.  We need
 	  * at least 2 * len + 2 characters to cover the quotes and
@@ -4965,6 +4973,9 @@ set_time(cupsd_job_t *job,		/* I - Job to update */
     cupsdLogMessage(CUPSD_LOG_DEBUG2, "set_time: JobHistoryUpdate=%ld",
 		    (long)JobHistoryUpdate);
   }
+
+  job->dirty = 1;
+  cupsdMarkDirty(CUPSD_DIRTY_JOBS);
 }
 
 
@@ -5537,13 +5548,29 @@ update_job(cupsd_job_t *job)		/* I - Job to check */
     else if (loglevel == CUPSD_LOG_PPD)
     {
      /*
-      * Set attribute(s)...
+      * Set PPD keyword(s)/value(s)...
       */
+
+      int		num_keywords;	/* Number of keywords */
+      cups_option_t	*keywords,	/* Keywords */
+			*keyword;	/* Current keyword */
 
       cupsdLogJob(job, CUPSD_LOG_DEBUG, "PPD: %s", message);
 
-      job->num_keywords = cupsParseOptions(message, job->num_keywords,
-                                           &job->keywords);
+      keywords     = NULL;
+      num_keywords = cupsParseOptions(message, 0, &keywords);
+
+      for (i = 0, keyword = keywords; i < num_keywords; i ++)
+      {
+       /*
+        * Filter out "special" PPD keywords...
+        */
+
+        if (strcmp(keyword->name, "cupsFilter") && strcmp(keyword->name, "cupsFilter2") && strcmp(keyword->name, "cupsFinishingTemplate") && strcmp(keyword->name, "cupsIPPFinishings") && strcmp(keyword->name, "cupsIPPReason") && strcmp(keyword->name, "cupsMarkerName") && strcmp(keyword->name, "cupsMaxSize") && strncmp(keyword->name, "cupsMediaQualifier", 18) && strcmp(keyword->name, "cupsMinSize") && strcmp(keyword->name, "cupsPageSizeCategory") && strcmp(keyword->name, "cupsPortMonitor") && strcmp(keyword->name, "cupsPreFilter") && strcmp(keyword->name, "cupsPrintQuality") && strcmp(keyword->name, "APPrinterPreset"))
+          job->num_keywords = cupsAddOption(keyword->name, keyword->value, job->num_keywords, &job->keywords);
+      }
+
+      cupsFreeOptions(num_keywords, keywords);
     }
     else
     {

@@ -46,7 +46,9 @@
 typedef enum
 {
   CUPSD_VARTYPE_INTEGER,		/* Integer option */
+  CUPSD_VARTYPE_SIZE,			/* Size option */
   CUPSD_VARTYPE_TIME,			/* Time interval option */
+  CUPSD_VARTYPE_NULLSTRING,		/* String option or NULL/empty string */
   CUPSD_VARTYPE_STRING,			/* String option */
   CUPSD_VARTYPE_BOOLEAN,		/* Boolean option */
   CUPSD_VARTYPE_PATHNAME,		/* File/directory name option */
@@ -69,7 +71,7 @@ static const cupsd_var_t	cupsd_vars[] =
 {
   { "AutoPurgeJobs", 		&JobAutoPurge,		CUPSD_VARTYPE_BOOLEAN },
 #ifdef HAVE_DNSSD
-  { "BrowseDNSSDSubTypes",	&DNSSDSubTypes,		CUPSD_VARTYPE_STRING },
+  { "BrowseDNSSDSubTypes",	&DNSSDSubTypes,		CUPSD_VARTYPE_NULLSTRING },
 #endif /* HAVE_DNSSD */
   { "BrowseWebIF",		&BrowseWebIF,		CUPSD_VARTYPE_BOOLEAN },
   { "Browsing",			&Browsing,		CUPSD_VARTYPE_BOOLEAN },
@@ -100,7 +102,7 @@ static const cupsd_var_t	cupsd_vars[] =
 #ifdef HAVE_LAUNCHD
   { "LaunchdTimeout",		&IdleExitTimeout,	CUPSD_VARTYPE_TIME },
 #endif /* HAVE_LAUNCHD */
-  { "LimitRequestBody",		&MaxRequestSize,	CUPSD_VARTYPE_INTEGER },
+  { "LimitRequestBody",		&MaxRequestSize,	CUPSD_VARTYPE_SIZE },
   { "LogDebugHistory",		&LogDebugHistory,	CUPSD_VARTYPE_INTEGER },
   { "MaxActiveJobs",		&MaxActiveJobs,		CUPSD_VARTYPE_INTEGER },
   { "MaxClients",		&MaxClients,		CUPSD_VARTYPE_INTEGER },
@@ -113,14 +115,14 @@ static const cupsd_var_t	cupsd_vars[] =
   { "MaxJobsPerUser",		&MaxJobsPerUser,	CUPSD_VARTYPE_INTEGER },
   { "MaxJobTime",		&MaxJobTime,		CUPSD_VARTYPE_TIME },
   { "MaxLeaseDuration",		&MaxLeaseDuration,	CUPSD_VARTYPE_TIME },
-  { "MaxLogSize",		&MaxLogSize,		CUPSD_VARTYPE_INTEGER },
-  { "MaxRequestSize",		&MaxRequestSize,	CUPSD_VARTYPE_INTEGER },
+  { "MaxLogSize",		&MaxLogSize,		CUPSD_VARTYPE_SIZE },
+  { "MaxRequestSize",		&MaxRequestSize,	CUPSD_VARTYPE_SIZE },
   { "MaxSubscriptions",		&MaxSubscriptions,	CUPSD_VARTYPE_INTEGER },
   { "MaxSubscriptionsPerJob",	&MaxSubscriptionsPerJob,	CUPSD_VARTYPE_INTEGER },
   { "MaxSubscriptionsPerPrinter",&MaxSubscriptionsPerPrinter,	CUPSD_VARTYPE_INTEGER },
   { "MaxSubscriptionsPerUser",	&MaxSubscriptionsPerUser,	CUPSD_VARTYPE_INTEGER },
   { "MultipleOperationTimeout",	&MultipleOperationTimeout,	CUPSD_VARTYPE_TIME },
-  { "PageLogFormat",		&PageLogFormat,		CUPSD_VARTYPE_STRING },
+  { "PageLogFormat",		&PageLogFormat,		CUPSD_VARTYPE_NULLSTRING },
   { "PreserveJobFiles",		&JobFiles,		CUPSD_VARTYPE_TIME },
   { "PreserveJobHistory",	&JobHistory,		CUPSD_VARTYPE_TIME },
   { "ReloadTimeout",		&ReloadTimeout,		CUPSD_VARTYPE_TIME },
@@ -791,6 +793,13 @@ cupsdReadConfiguration(void)
 #ifdef HAVE_ONDEMAND
   IdleExitTimeout = 60;
 #endif /* HAVE_ONDEMAND */
+
+  if (!strcmp(CUPS_DEFAULT_PEER_CRED, "off"))
+    PeerCred = CUPSD_PEERCRED_OFF;
+  else if (!strcmp(CUPS_DEFAULT_PEER_CRED, "root-only"))
+    PeerCred = CUPSD_PEERCRED_ROOTONLY;
+  else
+    PeerCred = CUPSD_PEERCRED_ON;
 
  /*
   * Setup environment variables...
@@ -1846,7 +1855,7 @@ get_addr_and_mask(const char *value,	/* I - String from config file */
 
     family  = AF_INET6;
 
-    for (i = 0, ptr = value + 1; *ptr && i < 8; i ++)
+    for (i = 0, ptr = value + 1; *ptr && i >= 0 && i < 8; i ++)
     {
       if (*ptr == ']')
         break;
@@ -1992,7 +2001,7 @@ get_addr_and_mask(const char *value,	/* I - String from config file */
 #ifdef AF_INET6
       if (family == AF_INET6)
       {
-        if (i > 128)
+        if (i < 0 || i > 128)
 	  return (0);
 
         i = 128 - i;
@@ -2026,7 +2035,7 @@ get_addr_and_mask(const char *value,	/* I - String from config file */
       else
 #endif /* AF_INET6 */
       {
-        if (i > 32)
+        if (i < 0 || i > 32)
 	  return (0);
 
         mask[0] = 0xffffffff;
@@ -2704,16 +2713,16 @@ parse_variable(
   {
    /*
     * Unknown directive!  Output an error message and continue...
+    *
+    * Return value 1 is on purpose - we ignore unknown directives to log
+    * error, but do not stop the scheduler in case error in configuration
+    * is set to be fatal.
     */
 
-    if (!value)
-      cupsdLogMessage(CUPSD_LOG_ERROR, "Missing value for %s on line %d of %s.",
-		      line, linenum, filename);
-    else
-      cupsdLogMessage(CUPSD_LOG_ERROR, "Unknown directive %s on line %d of %s.",
-		      line, linenum, filename);
+    cupsdLogMessage(CUPSD_LOG_ERROR, "Unknown directive %s on line %d of %s.",
+		    line, linenum, filename);
 
-    return (0);
+    return (1);
   }
 
   switch (var->type)
@@ -2721,54 +2730,86 @@ parse_variable(
     case CUPSD_VARTYPE_INTEGER :
 	if (!value)
 	{
-	  cupsdLogMessage(CUPSD_LOG_ERROR,
-			  "Missing integer value for %s on line %d of %s.",
-			  line, linenum, filename);
+	  cupsdLogMessage(CUPSD_LOG_ERROR, "Missing integer value for %s on line %d of %s.", line, linenum, filename);
           return (0);
 	}
 	else if (!isdigit(*value & 255))
 	{
-	  cupsdLogMessage(CUPSD_LOG_ERROR,
-			  "Bad integer value for %s on line %d of %s.",
-			  line, linenum, filename);
+	  cupsdLogMessage(CUPSD_LOG_ERROR, "Bad integer value for %s on line %d of %s.", line, linenum, filename);
           return (0);
 	}
 	else
 	{
-	  int	n;		/* Number */
-	  char	*units;		/* Units */
+	  long	n;		/* Number */
+	  char	*ptr;		/* Remaining text */
 
-	  n = (int)strtol(value, &units, 0);
+	  n = strtol(value, &ptr, 0);
 
-	  if (units && *units)
+	  if (n < 0 || n > INT_MAX || (ptr && *ptr))
 	  {
-	    if (tolower(units[0] & 255) == 'g')
-	      n *= 1024 * 1024 * 1024;
-	    else if (tolower(units[0] & 255) == 'm')
-	      n *= 1024 * 1024;
-	    else if (tolower(units[0] & 255) == 'k')
-	      n *= 1024;
-	    else if (tolower(units[0] & 255) == 't')
-	      n *= 262144;
-	    else
-	    {
-	      cupsdLogMessage(CUPSD_LOG_ERROR,
-			      "Unknown integer value for %s on line %d of %s.",
-			      line, linenum, filename);
-	      return (0);
-	    }
-	  }
-
-	  if (n < 0)
-	  {
-	    cupsdLogMessage(CUPSD_LOG_ERROR,
-			    "Bad negative integer value for %s on line %d of "
-			    "%s.", line, linenum, filename);
+	    cupsdLogMessage(CUPSD_LOG_ERROR, "Bad integer value for %s on line %d of %s.", line, linenum, filename);
 	    return (0);
 	  }
 	  else
 	  {
-	    *((int *)var->ptr) = n;
+	    *((int *)var->ptr) = (int)n;
+	  }
+	}
+	break;
+
+    case CUPSD_VARTYPE_SIZE :
+	if (!value)
+	{
+	  cupsdLogMessage(CUPSD_LOG_ERROR, "Missing size value for %s on line %d of %s.", line, linenum, filename);
+          return (0);
+	}
+	else if (!isdigit(*value & 255))
+	{
+	  cupsdLogMessage(CUPSD_LOG_ERROR, "Bad size value for %s on line %d of %s.", line, linenum, filename);
+          return (0);
+	}
+	else
+	{
+	  double	n;		/* Number */
+	  char		*units;		/* Units */
+
+	  n = _cupsStrScand(value, &units, localeconv());
+
+	  if (units && *units)
+	  {
+	    if (tolower(units[0] & 255) == 'g')
+	    {
+	      n *= 1024.0 * 1024.0 * 1024.0;
+	    }
+	    else if (tolower(units[0] & 255) == 'm')
+	    {
+	      n *= 1024.0 * 1024.0;
+	    }
+	    else if (tolower(units[0] & 255) == 'k')
+	    {
+	      n *= 1024.0;
+	    }
+	    else
+	    {
+	      cupsdLogMessage(CUPSD_LOG_ERROR, "Unknown size units for %s on line %d of %s.", line, linenum, filename);
+	      return (0);
+	    }
+	  }
+
+#ifdef OFF_MAX
+	  if (n < 0 || n > (double)OFF_MAX)
+#elif defined(LLONG_MAX)
+	  if (n < 0 || n > (double)LLONG_MAX)
+#else
+	  if (n < 0 || n > (double)LONG_MAX)
+#endif /* OFF_MAX */
+	  {
+	    cupsdLogMessage(CUPSD_LOG_ERROR, "Bad size value for %s on line %d of %s.", line, linenum, filename);
+	    return (0);
+	  }
+	  else
+	  {
+	    *((off_t *)var->ptr) = (off_t)n;
 	  }
 	}
 	break;
@@ -2936,7 +2977,17 @@ parse_variable(
 	cupsdSetString((char **)var->ptr, temp);
 	break;
 
+    case CUPSD_VARTYPE_NULLSTRING :
+	cupsdSetString((char **)var->ptr, value);
+	break;
+
     case CUPSD_VARTYPE_STRING :
+        if (!value)
+        {
+	  cupsdLogMessage(CUPSD_LOG_ERROR, "Missing value for %s on line %d of %s.", line, linenum, filename);
+	  return (0);
+        }
+
 	cupsdSetString((char **)var->ptr, value);
 	break;
   }
@@ -3453,9 +3504,10 @@ read_cupsd_conf(cups_file_t *fp)	/* I - File to read from */
 		      line, value ? " " : "", value ? value : "", linenum,
 		      ConfigurationFile, CupsFilesFile);
     }
-    else
-      parse_variable(ConfigurationFile, linenum, line, value,
-                     sizeof(cupsd_vars) / sizeof(cupsd_vars[0]), cupsd_vars);
+    else if (!parse_variable(ConfigurationFile, linenum, line, value,
+			     sizeof(cupsd_vars) / sizeof(cupsd_vars[0]), cupsd_vars) &&
+	     (FatalErrors & CUPSD_FATAL_CONFIG))
+      return (0);
   }
 
   return (1);
@@ -3612,6 +3664,31 @@ read_cups_files_conf(cups_file_t *fp)	/* I - File to read from */
         for (value += valuelen; *value; value ++)
 	  if (!_cups_isspace(*value) || *value != ',')
 	    break;
+      }
+    }
+    else if (!_cups_strcasecmp(line, "PeerCred") && value)
+    {
+     /*
+      * PeerCred {off,on,root-only}
+      */
+
+      if (!_cups_strcasecmp(value, "off"))
+      {
+        PeerCred = CUPSD_PEERCRED_OFF;
+      }
+      else if (!_cups_strcasecmp(value, "on"))
+      {
+        PeerCred = CUPSD_PEERCRED_ON;
+      }
+      else if (!_cups_strcasecmp(value, "root-only"))
+      {
+        PeerCred = CUPSD_PEERCRED_ROOTONLY;
+      }
+      else
+      {
+	cupsdLogMessage(CUPSD_LOG_ERROR, "Unknown PeerCred \"%s\" on line %d of %s.", value, linenum, CupsFilesFile);
+        if (FatalErrors & CUPSD_FATAL_CONFIG)
+          return (0);
       }
     }
     else if (!_cups_strcasecmp(line, "PrintcapFormat") && value)

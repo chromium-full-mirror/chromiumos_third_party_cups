@@ -2,6 +2,79 @@ CHANGES - OpenPrinting CUPS
 ===========================
 
 
+Changes in CUPS v2.4.18 (2026-04-22)
+------------------------------------
+
+- Fixed cupsd crash if user does not exist (Issue #1555)
+
+
+Changes in CUPS v2.4.17 (2026-04-17)
+------------------------------------
+
+- CVE-2026-27447: The scheduler treated local user and group names as case-
+  insensitive.
+- CVE-2026-34978: The RSS notifier could write outside the scheduler's RSS
+  directory.
+- CVE-2026-34980: The scheduler did not filter control characters from option
+  values.
+- CVE-2026-34979: The scheduler did not always allocate enough memory for a
+  job's options string.
+- CVE-2026-34990: The scheduler incorrectly allowed local certificates over the
+  loopback interface.
+- CVE-2026-39314: Fixed the range check for job password strings.
+- CVE-2026-39316: Fixed a printer subscription bug in the scheduler.
+- CVE-2026-41079: Fixed a SNMP string conversion bug in the backends.
+- The scheduler followed symbolic links when cleaning out its temporary
+  directory (Issue #1448)
+- Updated `cupsFileGetConf` and `cupsFilePutConf` to escape more characters.
+- Updated man page `cancel` (Issue #984)
+- Updated `cupsRasterReadHeader` to validate more of the page header values
+  (Issue #1501)
+- Fixed an issue with the class/printer CGI name checking.
+- Fixed infinite loop in `http_write()` on busy print servers (Issue #827)
+- Fixed potential TLS blocking issues (Issue #1128)
+- Fixed a job history bug in the scheduler (Issue #1440)
+- Fixed notifier logging bug that would result in nul bytes getting into the
+  log (Issue #1450)
+- Fixed possible use-after-free in `cupsdReadClient()` (Issue #1454)
+- Fixed a document format bug in the IPP backend (Issue #1457)
+- Fixed DRAIN_OUTPUT race condition (Issue #1461)
+- Fixed a bug when then `ippFindXxx` and `ippSetXxx` functions were mixed.
+- Fixed the mapping of supply type keywords to SNMP names.
+- Fixed a bug in the IPP backend when SNMP was disabled.
+- Fixed a crash bug in the rastertoepson filter.
+- Fixed a bug in cgiCheckVariables.
+- Fixed handling read/write errors with OpenSSL (Issue #1506)
+- Fixed handling rehandshake error in `_httpTLSRead` (Issue #1508)
+- Fixed a debug printf bug on Windows (Issue #1529)
+- Fixed a recursion issue with encoding of nested collections (Issue #1539)
+- Fixed parsing of the `LimitRequestBody`, `MaxLogSize`, and `MaxRequestSize`
+  directives in "cupsd.conf" (Issue #1540)
+- Fixed a parsing bug in `ipptool` (Issue #1542)
+- Fixed blank line detection in the `rastertolabel` filter (Issue #1545)
+- Fixed `httpPeek` edge case on compressed streams
+
+
+Changes in CUPS v2.4.16 (2025-12-04)
+------------------------------------
+
+- `cupsUTF8ToCharset` didn't validate 2-byte UTF-8 sequences, potentially
+  reading past the end of the source string (Issue #1438)
+- The web interface did not support domain usernames fully (Issue #1441)
+- Fixed an infinite loop issue in the GTK+ print dialog (Issue #1439)
+- Fixed stopping scheduler on unknown directive in configuration (Issue #1443)
+
+
+Changes in CUPS v2.4.15 (2025-11-27)
+------------------------------------
+
+- Fix various cupsd issues which cause local DoS (CVE-2025-61915)
+- Fix unresponsive cupsd process caused by slow client (CVE-2025-58436)
+- Fixed potential crash in `cups-driverd` when there are duplicate PPDs
+  (Issue #1355)
+- Fixed error recovery when scanning for PPDs in `cups-driverd` (Issue #1416)
+
+
 Changes in CUPS v2.4.14 (2025-09-11)
 ------------------------------------
 

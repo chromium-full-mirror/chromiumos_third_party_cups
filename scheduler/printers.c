@@ -656,6 +656,12 @@ cupsdDeletePrinter(
 		              "Job stopped.");
 
  /*
+  * Expire subscriptions on the printer...
+  */
+
+  cupsdExpireSubscriptions(p, /*job*/NULL);
+
+ /*
   * Remove the printer from the list...
   */
 
@@ -2160,13 +2166,15 @@ cupsdSetPrinterAttr(
       type  = ippGetString(types, i, NULL);
 
       for (psptr = pstype; *type && psptr < (pstype + sizeof(pstype) - 1); type ++)
-        if (*type == '-')
+      {
+        if (*type == '-' && type[1])
 	{
 	  type ++;
 	  *psptr++ = (char)toupper(*type & 255);
 	}
 	else
 	  *psptr++ = *type;
+      }
       *psptr = '\0';
 
       snprintf(buffer, sizeof(buffer), "index=%d;class=%s;type=%s;unit=percent;maxcapacity=100;level=%d;colorantname=%s;", i + 1, strncmp(pstype, "waste", 5) ? "supplyThatIsConsumed" : "receptacleThatIsFilled", pstype, level, color);
@@ -2818,7 +2826,7 @@ cupsdUpdatePrinterPPD(
   * Get the base PPD filename...
   */
 
-  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", PrinterRoot, p->name);
+  snprintf(filename, sizeof(filename), "%s/ppd/%s.ppd", ServerRoot, p->name);
 
  /*
   * Open the old and new PPDs...

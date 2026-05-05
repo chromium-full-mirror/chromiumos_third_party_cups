@@ -1,7 +1,7 @@
 /*
  * Internet Printing Protocol functions for CUPS.
  *
- * Copyright © 2022-2025 by OpenPrinting.
+ * Copyright © 2022-2026 by OpenPrinting.
  * Copyright © 2007-2021 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
@@ -6050,7 +6050,6 @@ ipp_read_io(void       *src,		/* I - Data source */
           ipp->request.any.version[1]  = buffer[1];
           ipp->request.any.op_status = (buffer[2] << 8) | buffer[3];
           ipp->request.any.request_id = Read4BytesAsInteger(buffer + 4);
-
           DEBUG_printf(("2ipp_read_io: version=%d.%d", buffer[0], buffer[1]));
 	  DEBUG_printf(("2ipp_read_io: op_status=%04x",
 	                ipp->request.any.op_status));
@@ -6085,8 +6084,7 @@ ipp_read_io(void       *src,		/* I - Data source */
 	  * Read this attribute...
 	  */
 
-      tag = (ipp_tag_t)buffer[0];
-
+          tag = (ipp_tag_t)buffer[0];
 	  if (tag == IPP_TAG_END)
 	  {
 	   /*
@@ -6824,7 +6822,7 @@ ipp_set_value(ipp_t           *ipp,	/* IO - IPP message */
 #endif /* !__clang_analyzer__ */
     DEBUG_printf(("4debug_alloc: %p %s %s%s (%d)", (void *)temp, temp->name, temp->num_values > 1 ? "1setOf " : "", ippTagString(temp->value_tag), temp->num_values));
 
-    if (ipp->current == *attr && ipp->prev)
+    if (ipp->current == *attr && ipp->prev && ipp->prev->next == *attr)
     {
      /*
       * Use current "previous" pointer...

@@ -1,7 +1,7 @@
 /*
  * TLS support code for CUPS using OpenSSL/LibreSSL.
  *
- * Copyright © 2020-2023 by OpenPrinting
+ * Copyright © 2020-2026 by OpenPrinting
  * Copyright © 2007-2019 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
@@ -215,12 +215,14 @@ cupsMakeServerCredentials(
   // Save them...
   if ((bio = BIO_new_file(keyfile, "wb")) == NULL)
   {
+    DEBUG_printf(("1cupsMakeServerCredentials: Unable to create private key file '%s': %s", keyfile, strerror(errno)));
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
     goto done;
   }
 
   if (!PEM_write_bio_PrivateKey(bio, pkey, NULL, NULL, 0, NULL, NULL))
   {
+    DEBUG_puts("1cupsMakeServerCredentials: PEM_write_bio_PrivateKey failed.");
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Unable to write private key."), 1);
     BIO_free(bio);
     goto done;
@@ -230,12 +232,14 @@ cupsMakeServerCredentials(
 
   if ((bio = BIO_new_file(crtfile, "wb")) == NULL)
   {
+    DEBUG_printf(("1cupsMakeServerCredentials: Unable to create certificate file '%s': %s", crtfile, strerror(errno)));
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, strerror(errno), 0);
     goto done;
   }
 
   if (!PEM_write_bio_X509(bio, cert))
   {
+    DEBUG_puts("1cupsMakeServerCredentials: PEM_write_bio_X509 failed.");
     _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Unable to write X.509 certificate."), 1);
     BIO_free(bio);
     goto done;
@@ -912,7 +916,23 @@ _httpTLSRead(http_t *http,		// I - Connection to server
 	     char   *buf,		// I - Buffer to store data
 	     int    len)		// I - Length of buffer
 {
-  return (SSL_read((SSL *)(http->tls), buf, len));
+  int bytes;
+
+  bytes = SSL_read((SSL *)(http->tls), buf, len);
+
+  if (bytes > 0)
+    return (bytes);
+
+ /*
+  * For now, make difference only for error after which we can retry, EPIPE otherwise...
+  */
+
+  if (SSL_get_error(http->tls, bytes) == SSL_ERROR_WANT_READ)
+    errno = EAGAIN;
+  else
+    errno = EPIPE;
+
+  return (-1);
 }
 
 
@@ -991,7 +1011,7 @@ _httpTLSStart(http_t *http)		// I - Connection to server
     // Negotiate a TLS connection as a server
     char	crtfile[1024],		// Certificate file
 		keyfile[1024];		// Private key file
-    const char	*cn,			// Common name to lookup
+    const char	*cn = NULL,		// Common name to lookup
 		*cnptr;			// Pointer into common name
     int		have_creds = 0;		// Have credentials?
     int		key_status, crt_status;	// Key and certificate load status
@@ -999,46 +1019,54 @@ _httpTLSStart(http_t *http)		// I - Connection to server
     context = SSL_CTX_new(TLS_server_method());
 
     // Find the TLS certificate...
-    if (http->fields[HTTP_FIELD_HOST])
-    {
-      // Use hostname for TLS upgrade...
-      strlcpy(hostname, http->fields[HTTP_FIELD_HOST], sizeof(hostname));
-    }
-    else
-    {
-      // Resolve hostname from connection address...
-      http_addr_t	addr;		// Connection address
-      socklen_t		addrlen;	// Length of address
+    _cupsMutexLock(&tls_mutex);
 
-      addrlen = sizeof(addr);
-      if (getsockname(http->fd, (struct sockaddr *)&addr, &addrlen))
+    if (!tls_common_name)
+    {
+      _cupsMutexUnlock(&tls_mutex);
+
+      if (http->fields[HTTP_FIELD_HOST])
       {
-        // Unable to get local socket address so use default...
-	DEBUG_printf(("4_httpTLSStart: Unable to get socket address: %s", strerror(errno)));
-	hostname[0] = '\0';
-      }
-      else if (httpAddrLocalhost(&addr))
-      {
-        // Local access top use default...
-	hostname[0] = '\0';
+	// Use hostname for TLS upgrade...
+	strlcpy(hostname, http->fields[HTTP_FIELD_HOST], sizeof(hostname));
       }
       else
       {
-        // Lookup the socket address...
-	httpAddrLookup(&addr, hostname, sizeof(hostname));
-        DEBUG_printf(("4_httpTLSStart: Resolved socket address to \"%s\".", hostname));
+	// Resolve hostname from connection address...
+	http_addr_t	addr;		// Connection address
+	socklen_t	addrlen;	// Length of address
+
+	addrlen = sizeof(addr);
+	if (getsockname(http->fd, (struct sockaddr *)&addr, &addrlen))
+	{
+	  // Unable to get local socket address so use default...
+	  DEBUG_printf(("4_httpTLSStart: Unable to get socket address: %s", strerror(errno)));
+	  hostname[0] = '\0';
+	}
+	else if (httpAddrLocalhost(&addr))
+	{
+	  // Local access top use default...
+	  hostname[0] = '\0';
+	}
+	else
+	{
+	  // Lookup the socket address...
+	  httpAddrLookup(&addr, hostname, sizeof(hostname));
+	  DEBUG_printf(("4_httpTLSStart: Resolved socket address to \"%s\".", hostname));
+	}
       }
+
+      if (isdigit(hostname[0] & 255) || hostname[0] == '[')
+	hostname[0] = '\0';		// Don't allow numeric addresses
+
+      if (hostname[0])
+	cn = hostname;
+
+      _cupsMutexLock(&tls_mutex);
     }
 
-    if (isdigit(hostname[0] & 255) || hostname[0] == '[')
-      hostname[0] = '\0';		// Don't allow numeric addresses
-
-    if (hostname[0])
-      cn = hostname;
-    else
+    if (!cn)
       cn = tls_common_name;
-
-    _cupsMutexLock(&tls_mutex);
 
     if (cn)
     {
@@ -1082,10 +1110,10 @@ _httpTLSStart(http_t *http)		// I - Connection to server
 
       if (!cupsMakeServerCredentials(tls_keypath, cn, 0, NULL, time(NULL) + 3650 * 86400))
       {
-	DEBUG_puts("4_httpTLSStart: cupsMakeServerCredentials failed.");
+	DEBUG_printf(("4_httpTLSStart: cupsMakeServerCredentials failed: %s", cupsLastErrorString()));
 	http->error  = errno = EINVAL;
 	http->status = HTTP_STATUS_ERROR;
-	_cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Unable to create server credentials."), 1);
+//	_cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Unable to create server credentials."), 1);
 	SSL_CTX_free(context);
         _cupsMutexUnlock(&tls_mutex);
 
@@ -1238,7 +1266,23 @@ _httpTLSWrite(http_t     *http,		// I - Connection to server
 	      const char *buf,		// I - Buffer holding data
 	      int        len)		// I - Length of buffer
 {
-  return (SSL_write(http->tls, buf, len));
+  int bytes;
+
+  bytes = SSL_write(http->tls, buf, len);
+
+  if (bytes > 0)
+    return (bytes);
+
+ /*
+  * For now, make difference only for error after which we can retry, EPIPE otherwise...
+  */
+
+  if (SSL_get_error(http->tls, bytes) == SSL_ERROR_WANT_WRITE)
+    errno = EAGAIN;
+  else
+    errno = EPIPE;
+
+  return (-1);
 }
 
 
@@ -1346,14 +1390,17 @@ http_bio_read(BIO  *h,			// I - BIO data
 
   http = (http_t *)BIO_get_data(h);
 
-  if (!http->blocking)
+  if (!http->blocking || http->timeout_value > 0.0)
   {
    /*
     * Make sure we have data before we read...
     */
 
-    if (!_httpWait(http, 10000, 0))
+    while (!_httpWait(http, http->wait_value, 0))
     {
+      if (http->timeout_cb && (*http->timeout_cb)(http, http->timeout_data))
+	continue;
+
 #ifdef WIN32
       http->error = WSAETIMEDOUT;
 #else

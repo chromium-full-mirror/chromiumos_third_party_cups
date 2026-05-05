@@ -1,7 +1,7 @@
 /*
  * IPP backend for CUPS.
  *
- * Copyright © 2021-2025 by OpenPrinting
+ * Copyright © 2021-2026 by OpenPrinting
  * Copyright © 2007-2021 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
@@ -626,7 +626,8 @@ main(int  argc,				/* I - Number of command-line args */
   {
     num_files    = 0;
     files        = NULL;
-    send_options = !_cups_strcasecmp(final_content_type, "application/pdf") ||
+    send_options = !_cups_strcasecmp(final_content_type, "application/pclm") ||
+                   !_cups_strcasecmp(final_content_type, "application/pdf") ||
                    !_cups_strcasecmp(final_content_type, "application/vnd.cups-pdf") ||
                    !_cups_strncasecmp(final_content_type, "image/", 6);
 
@@ -773,7 +774,7 @@ main(int  argc,				/* I - Number of command-line args */
 
     if (httpReconnect2(http, 30000, NULL))
     {
-      int error = errno;		/* Connection error */
+      int error = errno;		/* Save connection error */
 
       if (http->status == HTTP_STATUS_CUPS_PKI_ERROR)
 	update_reasons(NULL, "+cups-certificate-error");
@@ -1783,13 +1784,14 @@ main(int  argc,				/* I - Number of command-line args */
 
           FD_ZERO(&input);
 	  FD_SET(fd, &input);
-	  FD_SET(snmp_fd, &input);
+	  if (snmp_fd >= 0)
+	    FD_SET(snmp_fd, &input);
 	  FD_SET(CUPS_SC_FD, &input);
 
           while (select(fd > snmp_fd ? fd + 1 : snmp_fd + 1, &input, NULL, NULL,
 	                NULL) <= 0 && !job_canceled);
 
-	  if (FD_ISSET(snmp_fd, &input))
+	  if (snmp_fd >= 0 && FD_ISSET(snmp_fd, &input))
 	    backendCheckSideChannel(snmp_fd, http->hostaddr);
 
           if (FD_ISSET(fd, &input))

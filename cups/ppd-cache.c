@@ -1,7 +1,7 @@
 /*
  * PPD cache implementation for CUPS.
  *
- * Copyright © 2022-2025 by OpenPrinting.
+ * Copyright © 2022-2026 by OpenPrinting.
  * Copyright © 2010-2021 by Apple Inc.
  *
  * Licensed under Apache License v2.0.  See the file "LICENSE" for more
@@ -2961,41 +2961,41 @@ _ppdCacheGetSize(
       loc = localeconv();
       w   = (float)_cupsStrScand(page_size + 7, &ptr, loc);
       if (!ptr || *ptr != 'x')
-	    return (NULL);
+	return (NULL);
 
       l = (float)_cupsStrScand(ptr + 1, &ptr, loc);
       if (!ptr)
-        return (NULL);
+	return (NULL);
 
       if (!_cups_strcasecmp(ptr, "in"))
       {
-	    w *= 2540.0;
-	    l *= 2540.0;
+	w *= 2540.0;
+	l *= 2540.0;
       }
       else if (!_cups_strcasecmp(ptr, "ft"))
       {
-	    w *= 12.0 * 2540.0;
-	    l *= 12.0 * 2540.0;
+	w *= 12.0 * 2540.0;
+	l *= 12.0 * 2540.0;
       }
       else if (!_cups_strcasecmp(ptr, "mm"))
       {
-	    w *= 100.0;
-	    l *= 100.0;
+	w *= 100.0;
+	l *= 100.0;
       }
       else if (!_cups_strcasecmp(ptr, "cm"))
       {
-	    w *= 1000.0;
-	    l *= 1000.0;
+	w *= 1000.0;
+	l *= 1000.0;
       }
       else if (!_cups_strcasecmp(ptr, "m"))
       {
-	    w *= 100000.0;
-	    l *= 100000.0;
+	w *= 100000.0;
+	l *= 100000.0;
       }
       else
       {
-	    w *= 2540.0 / 72.0;
-	    l *= 2540.0 / 72.0;
+	w *= 2540.0 / 72.0;
+	l *= 2540.0 / 72.0;
       }
     }
     else if (ppd_size)
@@ -3711,7 +3711,7 @@ _ppdCreateFromIPP2(
   * Password/PIN printing...
   */
 
-  if ((attr = ippFindAttribute(supported, "job-password-supported", IPP_TAG_INTEGER)) != NULL)
+  if ((attr = ippFindAttribute(supported, "job-password-supported", IPP_TAG_INTEGER)) != NULL && ippGetInteger(attr, 0) > 0)
   {
     char	pattern[33];		/* Password pattern */
     int		maxlen = ippGetInteger(attr, 0);
@@ -4171,7 +4171,12 @@ _ppdCreateFromIPP2(
   * InputSlot...
   */
 
-  if ((attr = ippFindAttribute(supported, "media-source-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1)
+  if ((attr = ippFindAttribute(ippGetCollection(defattr, 0), "media-source", IPP_TAG_ZERO)) != NULL && (ippGetValueTag(attr) == IPP_TAG_KEYWORD || ippGetValueTag(attr) == IPP_TAG_NAME || ippGetValueTag(attr) == IPP_TAG_NAMELANG))
+    pwg_ppdize_name(ippGetString(attr, 0, NULL), ppdname, sizeof(ppdname));
+  else
+    ppdname[0] = '\0';
+
+  if ((attr = ippFindAttribute(supported, "media-source-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1 && (ippGetValueTag(attr) == IPP_TAG_KEYWORD || ippGetValueTag(attr) == IPP_TAG_NAME || ippGetValueTag(attr) == IPP_TAG_NAMELANG))
   {
     int have_default = ppdname[0] != '\0';
 					/* Do we have a default InputSlot? */
@@ -4283,12 +4288,12 @@ _ppdCreateFromIPP2(
   * MediaType...
   */
 
-  if ((attr = ippFindAttribute(ippGetCollection(defattr, 0), "media-type", IPP_TAG_ZERO)) != NULL)
+  if ((attr = ippFindAttribute(ippGetCollection(defattr, 0), "media-type", IPP_TAG_ZERO)) != NULL && (ippGetValueTag(attr) == IPP_TAG_KEYWORD || ippGetValueTag(attr) == IPP_TAG_NAME || ippGetValueTag(attr) == IPP_TAG_NAMELANG))
     pwg_ppdize_name(ippGetString(attr, 0, NULL), ppdname, sizeof(ppdname));
   else
     strlcpy(ppdname, "Unknown", sizeof(ppdname));
 
-  if ((attr = ippFindAttribute(supported, "media-type-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1)
+  if ((attr = ippFindAttribute(supported, "media-type-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 1 && (ippGetValueTag(attr) == IPP_TAG_KEYWORD || ippGetValueTag(attr) == IPP_TAG_NAME || ippGetValueTag(attr) == IPP_TAG_NAMELANG))
   {
     cupsFilePrintf(fp, "*OpenUI *MediaType: PickOne\n"
                        "*OrderDependency: 10 AnySetup *MediaType\n"
@@ -4688,12 +4693,12 @@ _ppdCreateFromIPP2(
   * Output bin...
   */
 
-  if ((attr = ippFindAttribute(supported, "output-bin-default", IPP_TAG_ZERO)) != NULL)
+  if ((attr = ippFindAttribute(supported, "output-bin-default", IPP_TAG_ZERO)) != NULL && (ippGetValueTag(attr) == IPP_TAG_KEYWORD || ippGetValueTag(attr) == IPP_TAG_NAME || ippGetValueTag(attr) == IPP_TAG_NAMELANG))
     pwg_ppdize_name(ippGetString(attr, 0, NULL), ppdname, sizeof(ppdname));
   else
     strlcpy(ppdname, "Unknown", sizeof(ppdname));
 
-  if ((attr = ippFindAttribute(supported, "output-bin-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 0)
+  if ((attr = ippFindAttribute(supported, "output-bin-supported", IPP_TAG_ZERO)) != NULL && (count = ippGetCount(attr)) > 0 && (ippGetValueTag(attr) == IPP_TAG_KEYWORD || ippGetValueTag(attr) == IPP_TAG_NAME || ippGetValueTag(attr) == IPP_TAG_NAMELANG))
   {
     ipp_attribute_t	*trays = ippFindAttribute(supported, "printer-output-tray", IPP_TAG_STRING);
 					/* printer-output-tray attribute, if any */
@@ -6305,6 +6310,7 @@ pwg_fill_size_trackers(
       j = pwg_find_size_tracker(pwg_media->pwg, trackers, trackers_length);
       ++last_tracker;
     }
+
     if (j < 0)
     {
       /*

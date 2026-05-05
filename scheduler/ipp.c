@@ -1,7 +1,7 @@
 /*
  * IPP routines for the CUPS scheduler.
  *
- * Copyright © 2020-2025 by OpenPrinting
+ * Copyright © 2020-2026 by OpenPrinting
  * Copyright © 2007-2021 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
@@ -1513,8 +1513,6 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
     ippAddString(con->request, IPP_TAG_JOB, IPP_TAG_NAME, "job-name", NULL, "Untitled");
   }
 
-  attr = ippFindAttribute(con->request, "requesting-user-name", IPP_TAG_NAME);
-
   if ((job = cupsdAddJob(priority, printer->name)) == NULL)
   {
     send_ipp_status(con, IPP_INTERNAL_ERROR,
@@ -1523,8 +1521,20 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
     return (NULL);
   }
 
-  if (ippGetBoolean(ippFindAttribute(con->request, "print-as-raster", IPP_TAG_BOOLEAN), 0))
-    job->print_as_raster = 1;
+  if ((attr = ippFindAttribute(con->request, "print-as-raster", IPP_TAG_BOOLEAN)) != NULL)
+  {
+    if (ippGetBoolean(attr, 0))
+      job->print_as_raster = 1;
+  }
+  else
+  {
+    if (cupsGetOption("print-as-raster", printer->num_options,
+		      printer->options) != NULL)
+      job->print_as_raster = 1;
+  }
+
+  attr = ippFindAttribute(con->request, "requesting-user-name", IPP_TAG_NAME);
+
 
   job->dtype   = printer->type & (CUPS_PRINTER_CLASS | CUPS_PRINTER_REMOTE);
   job->attrs   = con->request;
@@ -1985,6 +1995,12 @@ add_job_subscriptions(
 			  recipient);
 	  ippAddInteger(con->response, IPP_TAG_SUBSCRIPTION, IPP_TAG_ENUM,
 	                "notify-status-code", IPP_ATTRIBUTES);
+	  return;
+	}
+	else if (!strcmp(scheme, "rss") && strstr(resource, "../") != NULL)
+	{
+          send_ipp_status(con, IPP_STATUS_ERROR_NOT_POSSIBLE, _("Bad notify-recipient-uri URI \"%s\"."), recipient);
+	  ippAddInteger(con->response, IPP_TAG_SUBSCRIPTION, IPP_TAG_ENUM, "notify-status-code", IPP_STATUS_ERROR_ATTRIBUTES_OR_VALUES);
 	  return;
 	}
       }
@@ -5614,7 +5630,7 @@ create_local_printer(
   * Require local access to create a local printer...
   */
 
-  if (!httpAddrLocalhost(httpGetAddress(con->http)))
+  if (httpAddrFamily(httpGetAddress(con->http)) != AF_LOCAL)
   {
     send_ipp_status(con, IPP_STATUS_ERROR_FORBIDDEN, _("Only local users can create a local printer."));
     return;
@@ -5674,9 +5690,9 @@ create_local_printer(
 
   ptr = ippGetString(device_uri, 0, NULL);
 
-  if (!ptr || !ptr[0])
+  if (!ptr || !ptr[0] || (strncmp(ptr, "ipp://", 6) && strncmp(ptr, "ipps://", 7)))
   {
-    send_ipp_status(con, IPP_STATUS_ERROR_BAD_REQUEST, _("Attribute \"%s\" has empty value."), "device-uri");
+    send_ipp_status(con, IPP_STATUS_ERROR_NOT_POSSIBLE, _("Bad device-uri \"%s\"."), ptr);
 
     return;
   }
@@ -6060,6 +6076,12 @@ create_subscriptions(
 			  recipient);
 	  ippAddInteger(con->response, IPP_TAG_SUBSCRIPTION, IPP_TAG_ENUM,
 	                "notify-status-code", IPP_ATTRIBUTES);
+	  return;
+	}
+	else if (!strcmp(scheme, "rss") && strstr(resource, "../") != NULL)
+	{
+	  send_ipp_status(con, IPP_STATUS_ERROR_NOT_POSSIBLE, _("Bad notify-recipient-uri URI \"%s\"."), recipient);
+	  ippAddInteger(con->response, IPP_TAG_SUBSCRIPTION, IPP_TAG_ENUM, "notify-status-code", IPP_STATUS_ERROR_ATTRIBUTES_OR_VALUES);
 	  return;
 	}
       }

@@ -1,7 +1,7 @@
 /*
  * TLS support code for CUPS using GNU TLS.
  *
- * Copyright © 2020-2025 by OpenPrinting
+ * Copyright © 2020-2026 by OpenPrinting
  * Copyright © 2007-2019 by Apple Inc.
  * Copyright © 1997-2007 by Easy Software Products, all rights reserved.
  *
@@ -1208,7 +1208,7 @@ _httpTLSRead(http_t *http,		/* I - Connection to server */
 
   result = gnutls_record_recv(http->tls, buf, (size_t)len);
 
-  if (result < 0 && !errno)
+  if (result < 0)
   {
    /*
     * Convert GNU TLS error to errno value...
@@ -1221,12 +1221,12 @@ _httpTLSRead(http_t *http,		/* I - Connection to server */
 	  break;
 
       case GNUTLS_E_AGAIN :
-          errno = EAGAIN;
-          break;
+	  errno = EAGAIN;
+	  break;
 
       default :
-          errno = EPIPE;
-          break;
+	  errno = EPIPE;
+	  break;
     }
 
     result = -1;
@@ -1370,50 +1370,58 @@ _httpTLSStart(http_t *http)		/* I - Connection to server */
 
     char	crtfile[1024],		/* Certificate file */
 		keyfile[1024];		/* Private key file */
-    const char	*cn,			// Common name to lookup
+    const char	*cn = NULL,		// Common name to lookup
 		*cnptr;			// Pointer into common name
     int		have_creds = 0;		/* Have credentials? */
 
-    if (http->fields[HTTP_FIELD_HOST])
-    {
-     /*
-      * Use hostname for TLS upgrade...
-      */
-
-      strlcpy(hostname, http->fields[HTTP_FIELD_HOST], sizeof(hostname));
-    }
-    else
-    {
-     /*
-      * Resolve hostname from connection address...
-      */
-
-      http_addr_t	addr;		/* Connection address */
-      socklen_t		addrlen;	/* Length of address */
-
-      addrlen = sizeof(addr);
-      if (getsockname(http->fd, (struct sockaddr *)&addr, &addrlen))
-      {
-	DEBUG_printf(("4_httpTLSStart: Unable to get socket address: %s", strerror(errno)));
-	hostname[0] = '\0';
-      }
-      else if (httpAddrLocalhost(&addr))
-	hostname[0] = '\0';
-      else
-      {
-	httpAddrLookup(&addr, hostname, sizeof(hostname));
-        DEBUG_printf(("4_httpTLSStart: Resolved socket address to \"%s\".", hostname));
-      }
-    }
-
-    if (isdigit(hostname[0] & 255) || hostname[0] == '[')
-      hostname[0] = '\0';		/* Don't allow numeric addresses */
-
     _cupsMutexLock(&tls_mutex);
 
-    if (hostname[0])
-      cn = hostname;
-    else
+    if (!tls_common_name)
+    {
+      _cupsMutexUnlock(&tls_mutex);
+
+      if (http->fields[HTTP_FIELD_HOST])
+      {
+       /*
+	* Use hostname for TLS upgrade...
+	*/
+
+	strlcpy(hostname, http->fields[HTTP_FIELD_HOST], sizeof(hostname));
+      }
+      else
+      {
+       /*
+	* Resolve hostname from connection address...
+	*/
+
+	http_addr_t	addr;		/* Connection address */
+	socklen_t		addrlen;	/* Length of address */
+
+	addrlen = sizeof(addr);
+	if (getsockname(http->fd, (struct sockaddr *)&addr, &addrlen))
+	{
+	  DEBUG_printf(("4_httpTLSStart: Unable to get socket address: %s", strerror(errno)));
+	  hostname[0] = '\0';
+	}
+	else if (httpAddrLocalhost(&addr))
+	  hostname[0] = '\0';
+	else
+	{
+	  httpAddrLookup(&addr, hostname, sizeof(hostname));
+	  DEBUG_printf(("4_httpTLSStart: Resolved socket address to \"%s\".", hostname));
+	}
+      }
+
+      if (isdigit(hostname[0] & 255) || hostname[0] == '[')
+	hostname[0] = '\0';		/* Don't allow numeric addresses */
+
+      if (hostname[0])
+	cn = hostname;
+
+      _cupsMutexLock(&tls_mutex);
+    }
+
+    if (!cn)
       cn = tls_common_name;
 
     if (cn)
@@ -1669,7 +1677,7 @@ _httpTLSWrite(http_t     *http,		/* I - Connection to server */
 
   result = gnutls_record_send(http->tls, buf, (size_t)len);
 
-  if (result < 0 && !errno)
+  if (result < 0)
   {
    /*
     * Convert GNU TLS error to errno value...
@@ -1682,12 +1690,25 @@ _httpTLSWrite(http_t     *http,		/* I - Connection to server */
 	  break;
 
       case GNUTLS_E_AGAIN :
-          errno = EAGAIN;
-          break;
+	  errno = EAGAIN;
+	  break;
+
+      case GNUTLS_E_REHANDSHAKE :
+	  // If used in client, ignore the error and try to read again...
+	  if (http->mode == _HTTP_MODE_CLIENT)
+	  {
+	    errno = EAGAIN;
+	  }
+	  else
+	  {
+	    // Terminate the session as server...
+	    errno = EPIPE;
+	  }
+	  break;
 
       default :
-          errno = EPIPE;
-          break;
+	  errno = EPIPE;
+	  break;
     }
 
     result = -1;
