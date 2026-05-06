@@ -1535,7 +1535,6 @@ add_job(cupsd_client_t  *con,		/* I - Client connection */
 
   attr = ippFindAttribute(con->request, "requesting-user-name", IPP_TAG_NAME);
 
-
   job->dtype   = printer->type & (CUPS_PRINTER_CLASS | CUPS_PRINTER_REMOTE);
   job->attrs   = con->request;
   job->dirty   = 1;

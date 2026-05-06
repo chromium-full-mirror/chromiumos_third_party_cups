@@ -2,6 +2,12 @@ CHANGES - OpenPrinting CUPS
 ===========================
 
 
+Changes in CUPS v2.4.19 (2026-04-27)
+------------------------------------
+
+- Fixed a regression in shared printing from non-local accounts (Issue #1557)
+
+
 Changes in CUPS v2.4.18 (2026-04-22)
 ------------------------------------
 
