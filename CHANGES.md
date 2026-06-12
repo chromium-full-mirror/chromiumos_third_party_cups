@@ -2,6 +2,13 @@ CHANGES - OpenPrinting CUPS
 ===========================
 
 
+Changes in CUPS v2.4.20 (YYYY-MM-DD)
+------------------------------------
+
+- Fixed case-sensitive PPD keyword comparisons when filtering keyword updates
+  from filters.
+
+
 Changes in CUPS v2.4.19 (2026-04-27)
 ------------------------------------
 
