@@ -673,7 +673,7 @@ ppdEmitString(ppd_file_t    *ppd,	/* I - PPD file record */
 	    case PPD_CUSTOM_POINTS :
 	    case PPD_CUSTOM_REAL :
 	    case PPD_CUSTOM_INT :
-	        bufsize += 10;
+	        bufsize += 54;
 	        break;
 
 	    case PPD_CUSTOM_PASSCODE :
@@ -722,7 +722,7 @@ ppdEmitString(ppd_file_t    *ppd,	/* I - PPD file record */
 	    case PPD_CUSTOM_POINTS :
 	    case PPD_CUSTOM_REAL :
 	    case PPD_CUSTOM_INT :
-	        bufsize += 10;
+	        bufsize += 54;
 	        break;
 
 	    case PPD_CUSTOM_PASSCODE :
