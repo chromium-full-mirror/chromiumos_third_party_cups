@@ -4416,11 +4416,9 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
 
       case IPP_TAG_BEGIN_COLLECTION:
       {
-        // Add the space needed for 'client-info'.
-        // Other collections are not supported.
-        if (!strcmp(attr->name, "client-info"))
+        int coll_count = ippGetCount(attr);
+        if (coll_count > 0)
         {
-          int coll_count = ippGetCount(attr);
           // Add space for comma separators between collections.
           bytes += coll_count - 1;
           // Add space for curly braces around each collection.
@@ -4430,8 +4428,8 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
           {
             bytes += ipp_length(ippGetCollection(attr, i));
           }
-          break;
         }
+        break;
       }
 
        default :

@@ -1577,10 +1577,17 @@ cups_collection_string(
       if (ippGetValueTag(member) == IPP_TAG_BEGIN_COLLECTION)
       {
        /*
-	* Convert sub-collection...
+	* Convert sub-collection.
+	*
+	* Note: cups_collection_string() returns the string length including
+	* the terminating NUL byte ('\0'). Subtract 1 when advancing bufptr
+	* so subsequent collection members overwrite the sub-collection's
+	* temporary NUL byte rather than leaving an embedded NUL in the buffer.
 	*/
 
-	bufptr += cups_collection_string(member, bufptr, bufptr < bufend ? (size_t)(bufend - bufptr + 1) : 0);
+        size_t sublen = cups_collection_string(member, bufptr, bufptr < bufend ? (size_t)(bufend - bufptr + 1) : 0);
+        if (sublen > 0)
+          bufptr += sublen - 1;
       }
       else
       {

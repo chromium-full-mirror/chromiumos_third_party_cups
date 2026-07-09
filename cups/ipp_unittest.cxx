@@ -246,4 +246,30 @@ TEST(IppClientInfoTests, AddClientInfoOptionToIppRequestUnsupportedMembers) {
                        {"chromebook-123", 6, "", absl::nullopt, absl::nullopt});
 }
 
+TEST(IppClientInfoTests, CupsCollectionStringNestedCollection) {
+  ScopedIppPtr ipp = WrapIpp(ippNew());
+
+  ipp_t* nested_col = ippNew();
+  ippAddString(nested_col, IPP_TAG_ZERO, IPP_TAG_KEYWORD, "x", nullptr, "foo");
+
+  ipp_t* outer_col = ippNew();
+  ippAddString(outer_col, IPP_TAG_ZERO, IPP_TAG_KEYWORD, "a", nullptr, "1");
+  ippAddCollection(outer_col, IPP_TAG_ZERO, "sub", nested_col);
+  ippAddString(outer_col, IPP_TAG_ZERO, IPP_TAG_KEYWORD, "b", nullptr, "2");
+
+  ipp_attribute_t* attr =
+      ippAddCollection(ipp.get(), IPP_TAG_OPERATION, "test-attr", outer_col);
+  ASSERT_TRUE(attr);
+
+  char buffer[256];
+  size_t len = _cupsCollectionString(attr, buffer, sizeof(buffer));
+
+  // _cupsCollectionString returns the length including the terminating NUL byte.
+  EXPECT_STREQ(buffer, "{a=\"1\" sub={x=\"foo\"} b=\"2\"}");
+  EXPECT_EQ(len, strlen("{a=\"1\" sub={x=\"foo\"} b=\"2\"}") + 1);
+
+  ippDelete(nested_col);
+  ippDelete(outer_col);
+}
+
 }  // namespace

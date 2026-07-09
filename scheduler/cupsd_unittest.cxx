@@ -231,6 +231,14 @@ class PrintJob : public testing::Test {
     return ret;
   }
 
+  void AddIppCollections(const std::string& name,
+                         std::vector<const ipp_t*> collections,
+                         ipp_tag_t group_tag = IPP_TAG_JOB) const {
+    ASSERT_TRUE(job_->attrs);
+    ASSERT_TRUE(ippAddCollections(job_->attrs, group_tag, name.c_str(),
+                                  collections.size(), collections.data()));
+  }
+
  private:
   // We need separate void implementations of functions so that the
   // ASSERT macro can be used.
@@ -324,14 +332,6 @@ class PrintJob : public testing::Test {
       vals.push_back(value.c_str());
     ASSERT_TRUE(ippAddStrings(job_->attrs, IPP_TAG_JOB, value_tag, name.c_str(),
                               vals.size(), nullptr, vals.data()));
-  }
-
-  void AddIppCollections(const std::string& name,
-                         std::vector<const ipp_t*> collections,
-                         ipp_tag_t group_tag) const {
-    ASSERT_TRUE(job_->attrs);
-    ASSERT_TRUE(ippAddCollections(job_->attrs, group_tag, name.c_str(),
-                                  collections.size(), collections.data()));
   }
 
   cupsd_job_t* const job_;
@@ -863,4 +863,31 @@ TEST_F(PrintJob, IppClientInfoWithOtherOptions) {
   const std::string_view job_password_opt(opt_string.data() +
                                           job_password_start_pos);
   EXPECT_EQ(job_password_opt, "job-password=1234");
+}
+
+// This is a regression test for b/515753439.
+TEST_F(PrintJob, IppClientInfoWithNestedCollection) {
+  SetPrinter("*PPD-Adobe: 4.3");
+  EXPECT_TRUE(Filter().empty());
+
+  ipp_t* nested_col = ippNew();
+  ippAddString(nested_col, IPP_TAG_ZERO, IPP_TAG_KEYWORD, "x", nullptr,
+               "nested_value");
+
+  ipp_t* client_info_col = ippNew();
+  ippAddString(client_info_col, IPP_TAG_ZERO, IPP_TAG_NAME, "client-name",
+               nullptr, "a");
+  ippAddInteger(client_info_col, IPP_TAG_ZERO, IPP_TAG_ENUM, "client-type", 3);
+  ippAddCollection(client_info_col, IPP_TAG_ZERO, "pad", nested_col);
+
+  std::vector<const ipp_t*> collections = {client_info_col};
+  AddIppCollections("client-info", collections, IPP_TAG_OPERATION);
+
+  ippDelete(nested_col);
+  ippDelete(client_info_col);
+
+  std::string opt_string = Filter();
+  EXPECT_EQ(
+      opt_string,
+      "client-info={client-name=\"a\" client-type=3 pad={x=\"nested_value\"}}");
 }
