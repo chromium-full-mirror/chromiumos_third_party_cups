@@ -637,6 +637,12 @@ testipp:	testipp.o $(LIBCUPSSTATIC)
 	echo Running IPP API tests...
 	./testipp
 
+## Build-only version of rule above.  Used in ChromeOS since the execution needs
+## to happen using a special script to handle different architectures.
+testipp-build:	testipp.o $(LIBCUPSSTATIC)
+	echo Linking testipp...
+	$(LD_CC) $(ARCHFLAGS) $(ALL_LDFLAGS) -o testipp testipp.o $(LINKCUPSSTATIC)
+	$(CODE_SIGN) -s "$(CODE_SIGN_IDENTITY)" testipp
 
 #
 # testi18n (dependency on static CUPS library is intentional)

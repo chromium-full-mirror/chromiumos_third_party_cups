@@ -242,10 +242,12 @@ uninstall:
 compile-test:	all
 	echo Making google unit tests...
 	cd cups && $(MAKE) $(MFLAGS) googletests
+	cd cups && $(MAKE) $(MFLAGS) testipp-build
 	cd scheduler && $(MAKE) $(MFLAGS) googletests
 
 check test:	compile-test
 	./cups/googletests
+	./cups/testipp
 	./scheduler/googletests
 
 
