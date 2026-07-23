@@ -13,7 +13,6 @@ include ../Makedefs
 
 
 TARGETS	=	\
-		commandtops \
 		gziptoany \
 		pstops \
 		rastertoepson \
@@ -21,7 +20,7 @@ TARGETS	=	\
 		rastertolabel \
 		rastertopwg
 
-OBJS	=	commandtops.o gziptoany.o common.o pstops.o \
+OBJS	=	gziptoany.o common.o pstops.o \
 		rastertoepson.o rastertohp.o rastertolabel.o \
 		rastertopwg.o
 
