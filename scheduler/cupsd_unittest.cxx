@@ -891,3 +891,31 @@ TEST_F(PrintJob, IppClientInfoWithNestedCollection) {
       opt_string,
       "client-info={client-name=\"a\" client-type=3 pad={x=\"nested_value\"}}");
 }
+
+// Ensure a printer is not deleted while in use by a background thread.  See
+// b/515742932
+TEST(Printers, DoNotDeleteWhileInUseByClient) {
+  // Create a temporary printer and force an expired timestamp
+  cupsd_printer_t* printer = cupsdAddPrinter("test-printer");
+  ASSERT_TRUE(printer);
+  printer->temporary = 1;
+  // Make it look like this printer has timed out so it otherwise would be
+  // deleted.
+  printer->state_time = 0;
+
+  // Simulate an active background thread referencing this printer.
+  printer->use ++;
+
+  cupsdDeleteTemporaryPrinters(/*force=*/0);
+  // Verify printer was NOT deleted because its reference count > 0.
+  EXPECT_THAT(cupsdFindDest("test-printer"), testing::NotNull());
+
+  // Even with force, this should not get deleted.
+  cupsdDeleteTemporaryPrinters(/*force=*/1);
+  EXPECT_THAT(cupsdFindDest("test-printer"), testing::NotNull());
+
+  // Release reference and retry cleanup.
+  printer->use --;
+  cupsdDeleteTemporaryPrinters(/*force=*/0);
+  EXPECT_THAT(cupsdFindDest("test-printer"), testing::IsNull());
+}
