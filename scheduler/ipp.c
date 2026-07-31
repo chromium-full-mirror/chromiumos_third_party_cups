@@ -5595,6 +5595,11 @@ create_local_bg_thread(
 
   con->bg_pending = 0;
 
+  _cupsRWLockWrite(&printer->lock);
+  if (printer->use > 0)
+    printer->use  --;
+  _cupsRWUnlock(&printer->lock);
+
   return (NULL);
 }
 
@@ -5809,6 +5814,9 @@ create_local_printer(
 
   con->bg_pending = 1;
   con->bg_printer = printer;
+  _cupsRWLockWrite(&printer->lock);
+  printer->use  ++;
+  _cupsRWUnlock(&printer->lock);
 
   _cupsThreadCreate((_cups_thread_func_t)create_local_bg_thread, con);
 
