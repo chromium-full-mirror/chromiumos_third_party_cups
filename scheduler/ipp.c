@@ -5460,14 +5460,6 @@ create_local_bg_thread(
 
   httpClose(http);
 
-  // Validate response from printer...
-  if (!ippValidateAttributes(response))
-  {
-    cupsdLogMessage(CUPSD_LOG_ERROR, "%s: Printer returned invalid data: %s", printer->name, cupsLastErrorString());
-    ippDelete(response);
-    return NULL;
-  }
-
  /*
   * Write the PPD for the queue...
   */
