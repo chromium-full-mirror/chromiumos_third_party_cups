@@ -641,7 +641,7 @@ testipp:	testipp.o $(LIBCUPSSTATIC)
 ## to happen using a special script to handle different architectures.
 testipp-build:	testipp.o $(LIBCUPSSTATIC)
 	echo Linking testipp...
-	$(LD_CC) $(ARCHFLAGS) $(ALL_LDFLAGS) -o testipp testipp.o $(LINKCUPSSTATIC)
+	$(LD_CXX) $(ARCHFLAGS) $(ALL_LDFLAGS) -o testipp testipp.o $(LINKCUPSSTATIC)
 	$(CODE_SIGN) -s "$(CODE_SIGN_IDENTITY)" testipp
 
 #
