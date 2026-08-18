@@ -707,6 +707,28 @@ cupsdContinueJob(cupsd_job_t *job)	/* I - Job */
       filters = prefilters;
     }
 
+   /*
+    * Deep-copy the borrowed mime_filter_t pointers before dropping the
+    * lock: create_local_bg_thread() may concurrently call
+    * cupsdSetPrinterAttrs() -> delete_printer_filters() ->
+    * mimeDeleteFilter(), which free()s these objects while we are still
+    * holding raw pointers in 'filters'.
+    */
+    if (filters)
+    {
+      cups_array_t *owned = cupsArrayNew3(NULL, NULL, NULL, 0, NULL,
+                                          (cups_afree_func_t)free);
+      for (filter = (mime_filter_t *)cupsArrayFirst(filters);
+           filter;
+           filter = (mime_filter_t *)cupsArrayNext(filters))
+      {
+        mime_filter_t *copy = calloc(1, sizeof(mime_filter_t));
+        if (copy) { *copy = *filter; cupsArrayAdd(owned, copy); }
+      }
+      cupsArrayDelete(filters);
+      filters = owned;
+    }
+
     _cupsRWUnlock(&MimeDatabase->lock);
   }
 
