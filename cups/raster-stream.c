@@ -1574,91 +1574,104 @@ cups_raster_update(cups_raster_t *r)	/* I - Raster stream */
 {
   int		ret = 1;		/* Return value */
   unsigned	bytesPerLine;		/* Expected bytes per line */
+  unsigned	expected_colors;	/* Expected number of colors */
 
+  /*
+   * Get the number of colors from the color space....
+   */
+
+  switch (r->header.cupsColorSpace)
+  {
+     case CUPS_CSPACE_W :
+     case CUPS_CSPACE_K :
+     case CUPS_CSPACE_WHITE :
+     case CUPS_CSPACE_GOLD :
+     case CUPS_CSPACE_SILVER :
+     case CUPS_CSPACE_SW :
+          expected_colors = 1;
+	  break;
+
+     case CUPS_CSPACE_RGB :
+     case CUPS_CSPACE_CMY :
+     case CUPS_CSPACE_YMC :
+     case CUPS_CSPACE_CIEXYZ :
+     case CUPS_CSPACE_CIELab :
+     case CUPS_CSPACE_SRGB :
+     case CUPS_CSPACE_ADOBERGB :
+     case CUPS_CSPACE_ICC1 :
+     case CUPS_CSPACE_ICC2 :
+     case CUPS_CSPACE_ICC3 :
+     case CUPS_CSPACE_ICC4 :
+     case CUPS_CSPACE_ICC5 :
+     case CUPS_CSPACE_ICC6 :
+     case CUPS_CSPACE_ICC7 :
+     case CUPS_CSPACE_ICC8 :
+     case CUPS_CSPACE_ICC9 :
+     case CUPS_CSPACE_ICCA :
+     case CUPS_CSPACE_ICCB :
+     case CUPS_CSPACE_ICCC :
+     case CUPS_CSPACE_ICCD :
+     case CUPS_CSPACE_ICCE :
+     case CUPS_CSPACE_ICCF :
+          expected_colors = 3;
+	  break;
+
+     case CUPS_CSPACE_RGBA :
+     case CUPS_CSPACE_RGBW :
+     case CUPS_CSPACE_CMYK :
+     case CUPS_CSPACE_YMCK :
+     case CUPS_CSPACE_KCMY :
+     case CUPS_CSPACE_GMCK :
+     case CUPS_CSPACE_GMCS :
+          expected_colors = 4;
+	  break;
+
+     case CUPS_CSPACE_KCMYcm :
+          if (r->header.cupsBitsPerPixel < 8)
+            expected_colors = 6;
+	  else
+            expected_colors = 4;
+	  break;
+
+     case CUPS_CSPACE_DEVICE1 :
+     case CUPS_CSPACE_DEVICE2 :
+     case CUPS_CSPACE_DEVICE3 :
+     case CUPS_CSPACE_DEVICE4 :
+     case CUPS_CSPACE_DEVICE5 :
+     case CUPS_CSPACE_DEVICE6 :
+     case CUPS_CSPACE_DEVICE7 :
+     case CUPS_CSPACE_DEVICE8 :
+     case CUPS_CSPACE_DEVICE9 :
+     case CUPS_CSPACE_DEVICEA :
+     case CUPS_CSPACE_DEVICEB :
+     case CUPS_CSPACE_DEVICEC :
+     case CUPS_CSPACE_DEVICED :
+     case CUPS_CSPACE_DEVICEE :
+     case CUPS_CSPACE_DEVICEF :
+          expected_colors = r->header.cupsColorSpace -
+	                            CUPS_CSPACE_DEVICE1 + 1;
+	  break;
+
+     default :
+          /* Unknown color space */
+	  _cupsRasterAddError("Invalid color space %u.", r->header.cupsColorSpace);
+          return (0);
+  }
+
+  /*
+   * Verify or set cupsNumColors...
+   */
 
   if (r->sync == CUPS_RASTER_SYNCv1 || r->sync == CUPS_RASTER_REVSYNCv1 ||
       r->header.cupsNumColors == 0)
   {
-   /*
-    * Set the "cupsNumColors" field according to the colorspace...
-    */
-
-    switch (r->header.cupsColorSpace)
-    {
-      case CUPS_CSPACE_W :
-      case CUPS_CSPACE_K :
-      case CUPS_CSPACE_WHITE :
-      case CUPS_CSPACE_GOLD :
-      case CUPS_CSPACE_SILVER :
-      case CUPS_CSPACE_SW :
-          r->header.cupsNumColors = 1;
-	  break;
-
-      case CUPS_CSPACE_RGB :
-      case CUPS_CSPACE_CMY :
-      case CUPS_CSPACE_YMC :
-      case CUPS_CSPACE_CIEXYZ :
-      case CUPS_CSPACE_CIELab :
-      case CUPS_CSPACE_SRGB :
-      case CUPS_CSPACE_ADOBERGB :
-      case CUPS_CSPACE_ICC1 :
-      case CUPS_CSPACE_ICC2 :
-      case CUPS_CSPACE_ICC3 :
-      case CUPS_CSPACE_ICC4 :
-      case CUPS_CSPACE_ICC5 :
-      case CUPS_CSPACE_ICC6 :
-      case CUPS_CSPACE_ICC7 :
-      case CUPS_CSPACE_ICC8 :
-      case CUPS_CSPACE_ICC9 :
-      case CUPS_CSPACE_ICCA :
-      case CUPS_CSPACE_ICCB :
-      case CUPS_CSPACE_ICCC :
-      case CUPS_CSPACE_ICCD :
-      case CUPS_CSPACE_ICCE :
-      case CUPS_CSPACE_ICCF :
-          r->header.cupsNumColors = 3;
-	  break;
-
-      case CUPS_CSPACE_RGBA :
-      case CUPS_CSPACE_RGBW :
-      case CUPS_CSPACE_CMYK :
-      case CUPS_CSPACE_YMCK :
-      case CUPS_CSPACE_KCMY :
-      case CUPS_CSPACE_GMCK :
-      case CUPS_CSPACE_GMCS :
-          r->header.cupsNumColors = 4;
-	  break;
-
-      case CUPS_CSPACE_KCMYcm :
-          if (r->header.cupsBitsPerPixel < 8)
-            r->header.cupsNumColors = 6;
-	  else
-            r->header.cupsNumColors = 4;
-	  break;
-
-      case CUPS_CSPACE_DEVICE1 :
-      case CUPS_CSPACE_DEVICE2 :
-      case CUPS_CSPACE_DEVICE3 :
-      case CUPS_CSPACE_DEVICE4 :
-      case CUPS_CSPACE_DEVICE5 :
-      case CUPS_CSPACE_DEVICE6 :
-      case CUPS_CSPACE_DEVICE7 :
-      case CUPS_CSPACE_DEVICE8 :
-      case CUPS_CSPACE_DEVICE9 :
-      case CUPS_CSPACE_DEVICEA :
-      case CUPS_CSPACE_DEVICEB :
-      case CUPS_CSPACE_DEVICEC :
-      case CUPS_CSPACE_DEVICED :
-      case CUPS_CSPACE_DEVICEE :
-      case CUPS_CSPACE_DEVICEF :
-          r->header.cupsNumColors = r->header.cupsColorSpace -
-	                            CUPS_CSPACE_DEVICE1 + 1;
-	  break;
-
-      default :
-          /* Unknown color space */
-          return (0);
-    }
+    r->header.cupsNumColors = expected_colors;
+  }
+  else if (r->header.cupsNumColors != expected_colors)
+  {
+    _cupsRasterAddError("Invalid number of colors %u for color space %u.",
+                        r->header.cupsNumColors, r->header.cupsColorSpace);
+    return (0);
   }
 
  /*
