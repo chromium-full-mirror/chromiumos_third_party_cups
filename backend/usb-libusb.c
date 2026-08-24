@@ -1093,7 +1093,8 @@ get_device_id(usb_printer_t *printer,	/* I - Printer */
               char          *buffer,	/* I - String buffer */
               size_t        bufsize)	/* I - Number of bytes in buffer */
 {
-  size_t	length;				/* Length of device ID */
+  size_t	length;			/* Length of device ID */
+  char		*ptr;			/* Pointer into device ID */
 
 
   if (libusb_control_transfer(printer->handle,
@@ -1147,6 +1148,22 @@ get_device_id(usb_printer_t *printer,	/* I - Printer */
 
   memmove(buffer, buffer + 2, length);
   buffer[length] = '\0';
+
+  /*
+  * Clean up the device ID - collapse whitespace to single spaces and reject
+  * any string containing other control characters (matches the sanitization
+  * already applied in backend/ieee1284.c:backendGetDeviceID()). The device ID
+  * is later written to stderr where embedded newlines would otherwise be
+  * interpreted by cupsd as separate STATE:/ATTR:/PPD: directive lines.
+  */
+  for (ptr = buffer; *ptr; ptr ++)
+    if (_cups_isspace(*ptr))
+      *ptr = ' ';
+    else if ((*ptr & 255) < ' ' || *ptr == 127)
+    {
+      *buffer = '\0';
+      return (-1);
+    }
 
   return (0);
 }
