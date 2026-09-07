@@ -947,7 +947,10 @@ push_stack(_cups_ps_stack_t *st,	/* I - Stack */
 
     if ((temp = realloc(st->objs, (size_t)st->alloc_objs *
                                   sizeof(_cups_ps_obj_t))) == NULL)
+    {
+      st->alloc_objs -= 32;
       return (NULL);
+    }
 
     st->objs = temp;
     memset(temp + st->num_objs, 0, 32 * sizeof(_cups_ps_obj_t));
