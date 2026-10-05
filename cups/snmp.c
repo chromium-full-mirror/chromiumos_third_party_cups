@@ -720,6 +720,19 @@ _cupsSNMPWrite(
 
   _httpAddrSetPort(&temp, CUPS_SNMP_PORT);
 
+ /*
+  * connect() the datagram socket to the printer so the kernel
+  * drops replies from any other peer (CWE-345). Without this an attacker
+  * on the LAN can race a forged Get-Response into the backend's ephemeral
+  * port during the 2 s poll window. Note: this intentionally breaks the
+  * broadcast-discovery use of this socket (backend/snmp.c), which ChromeOS
+  * does not ship; a full fix would also verify request_id in the callers.
+  */
+  if (connect(fd, (const struct sockaddr *)&temp, (socklen_t)httpAddrLength(&temp)) < 0)
+  {
+    return (0);
+  }
+
   return (sendto(fd, buffer, (size_t)bytes, 0, (void *)&temp, (socklen_t)httpAddrLength(&temp)) == bytes);
 }
 
