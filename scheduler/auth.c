@@ -1861,6 +1861,14 @@ cupsdIsAuthorized(cupsd_client_t *con,	/* I - Connection */
     {
       if (!_cups_strcasecmp(name, "@SYSTEM"))
       {
+       /*
+        * @SYSTEM grants administrative authority and therefore must be
+        * evaluated against an *authenticated* identity, never against an
+        * unauthenticated requesting-user-name supplied by the client.
+        */
+        if (!con->username[0])
+          continue;
+
         for (i = 0; i < NumSystemGroups; i ++)
 	  if (cupsdCheckGroup(username, pw, SystemGroups[i]) && check_admin_access(con))
 	    return (HTTP_OK);
