@@ -237,7 +237,7 @@ StartPage(
 	putchar(n);
 	putchar(n >> 8);
 
-        if (ppd)
+        if (ppd && ppd->num_sizes > 1)
 	  t = (int)((ppd->sizes[1].length - ppd->sizes[1].top) * header->HWResolution[1] / 72.0);
         else
 	  t = 0;
