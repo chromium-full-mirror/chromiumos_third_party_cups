@@ -536,6 +536,16 @@ httpCredentialsGetTrust(
 
         httpSaveCredentials(NULL, credentials, common_name);
       }
+      else
+      {
+       /*
+        * Stored credentials have not expired, so the certificate has changed...
+        */
+
+        _cupsSetError(IPP_STATUS_ERROR_INTERNAL, _("Credentials have changed."), 1);
+
+        trust = HTTP_TRUST_CHANGED;
+      }
     }
 
     httpFreeCredentials(tcreds);
