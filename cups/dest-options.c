@@ -29,7 +29,7 @@
 
 static void		cups_add_dconstres(cups_array_t *a, ipp_t *collection);
 static int		cups_collection_contains(ipp_t *test, ipp_t *match);
-static size_t		cups_collection_string(ipp_attribute_t *attr, char *buffer, size_t bufsize) _CUPS_NONNULL((1,2));
+static size_t		cups_collection_string(ipp_attribute_t *attr, char *buffer, size_t bufsize) _CUPS_NONNULL(1);
 static int		cups_compare_dconstres(_cups_dconstres_t *a,
 			                       _cups_dconstres_t *b);
 static int		cups_compare_media_db(_cups_media_db_t *a,
@@ -1496,6 +1496,40 @@ cups_collection_contains(ipp_t *test,	/* I - Collection to test */
 
 
 /*
+ * 'cups_append_char()' - Append a character to a bounded string buffer.
+ */
+
+static void
+cups_append_char(char   *buffer,	/* I  - String buffer */
+                 size_t bufsize,	/* I  - Size of buffer */
+                 size_t *total,		/* IO - Total characters needed */
+                 char   ch)		/* I  - Character to append */
+{
+  if (bufsize > 0 && *total < bufsize - 1)
+    buffer[*total] = ch;
+  (*total) ++;
+}
+
+
+/*
+ * 'cups_append_string()' - Append a NUL-terminated string to a bounded buffer.
+ */
+
+static void
+cups_append_string(char       *buffer,	/* I  - String buffer */
+                   size_t     bufsize,	/* I  - Size of buffer */
+                   size_t     *total,	/* IO - Total characters needed */
+                   const char *s)	/* I  - String to append */
+{
+  size_t slen = strlen(s);
+
+  if (bufsize > 0 && *total < bufsize - 1)
+    strlcpy(buffer + *total, s, bufsize - *total);
+  *total += slen;
+}
+
+
+/*
  * 'cups_collection_string()' - Convert an IPP collection to an option string.
  */
 
@@ -1509,70 +1543,49 @@ cups_collection_string(
 			count,		/* Number of collection values */
 			mcount;		/* Number of member values */
   ipp_t			*col;		/* Collection */
-  ipp_attribute_t	*first,		/* First member attribute */
-			*member;	/* Member attribute */
-  char			*bufptr,	/* Pointer into buffer */
-			*bufend,	/* End of buffer */
-			temp[100];	/* Temporary string */
+  ipp_attribute_t	*member;	/* Member attribute */
+  size_t		total = 0;	/* Characters needed excluding NUL */
+  char			temp[100];	/* Temporary string */
   const char		*mptr;		/* Pointer into member value */
   int			mlen;		/* Length of octetString */
 
 
-  bufptr = buffer;
-  bufend = buffer + bufsize - 1;
+  if (!buffer)
+    bufsize = 0;
 
   for (i = 0, count = ippGetCount(attr); i < count; i ++)
   {
+    int has_member = 0;
+
     col = ippGetCollection(attr, i);
 
     if (i)
-    {
-      if (bufptr < bufend)
-        *bufptr++ = ',';
-      else
-        bufptr ++;
-    }
+      cups_append_char(buffer, bufsize, &total, ',');
 
-    if (bufptr < bufend)
-      *bufptr++ = '{';
-    else
-      bufptr ++;
+    cups_append_char(buffer, bufsize, &total, '{');
 
-    for (member = first = ippFirstAttribute(col); member; member = ippNextAttribute(col))
+    for (member = ippFirstAttribute(col); member; member = ippNextAttribute(col))
     {
       const char *mname = ippGetName(member);
 
-      if (member != first)
-      {
-	if (bufptr < bufend)
-	  *bufptr++ = ' ';
-	else
-	  bufptr ++;
-      }
+      if (!mname)
+        continue;
+
+      if (has_member)
+	cups_append_char(buffer, bufsize, &total, ' ');
+      has_member = 1;
 
       if (ippGetValueTag(member) == IPP_TAG_BOOLEAN)
       {
         if (!ippGetBoolean(member, 0))
-        {
-	  if (bufptr < bufend)
-	    strlcpy(bufptr, "no", (size_t)(bufend - bufptr + 1));
-	  bufptr += 2;
-        }
+	  cups_append_string(buffer, bufsize, &total, "no");
 
-	if (bufptr < bufend)
-	  strlcpy(bufptr, mname, (size_t)(bufend - bufptr + 1));
-	bufptr += strlen(mname);
+	cups_append_string(buffer, bufsize, &total, mname);
         continue;
       }
 
-      if (bufptr < bufend)
-        strlcpy(bufptr, mname, (size_t)(bufend - bufptr + 1));
-      bufptr += strlen(mname);
-
-      if (bufptr < bufend)
-        *bufptr++ = '=';
-      else
-        bufptr ++;
+      cups_append_string(buffer, bufsize, &total, mname);
+      cups_append_char(buffer, bufsize, &total, '=');
 
       if (ippGetValueTag(member) == IPP_TAG_BEGIN_COLLECTION)
       {
@@ -1580,14 +1593,15 @@ cups_collection_string(
 	* Convert sub-collection.
 	*
 	* Note: cups_collection_string() returns the string length including
-	* the terminating NUL byte ('\0'). Subtract 1 when advancing bufptr
+	* the terminating NUL byte ('\0'). Subtract 1 when advancing total
 	* so subsequent collection members overwrite the sub-collection's
 	* temporary NUL byte rather than leaving an embedded NUL in the buffer.
 	*/
 
-        size_t sublen = cups_collection_string(member, bufptr, bufptr < bufend ? (size_t)(bufend - bufptr + 1) : 0);
+        size_t avail = (bufsize > 0 && total < bufsize - 1) ? (bufsize - total) : 0;
+        size_t sublen = cups_collection_string(member, avail ? buffer + total : NULL, avail);
         if (sublen > 0)
-          bufptr += sublen - 1;
+          total += sublen - 1;
       }
       else
       {
@@ -1598,46 +1612,28 @@ cups_collection_string(
 	for (j = 0, mcount = ippGetCount(member); j < mcount; j ++)
 	{
 	  if (j)
-	  {
-	    if (bufptr < bufend)
-	      *bufptr++ = ',';
-	    else
-	      bufptr ++;
-	  }
+	    cups_append_char(buffer, bufsize, &total, ',');
 
           switch (ippGetValueTag(member))
           {
             case IPP_TAG_INTEGER :
             case IPP_TAG_ENUM :
-                bufptr += snprintf(bufptr, bufptr < bufend ? (size_t)(bufend - bufptr + 1) : 0, "%d", ippGetInteger(member, j));
+                snprintf(temp, sizeof(temp), "%d", ippGetInteger(member, j));
+                cups_append_string(buffer, bufsize, &total, temp);
                 break;
 
 	    case IPP_TAG_STRING :
-		if (bufptr < bufend)
-		  *bufptr++ = '\"';
-		else
-		  bufptr ++;
+		cups_append_char(buffer, bufsize, &total, '\"');
 
-	        for (mptr = (const char *)ippGetOctetString(member, j, &mlen); mlen > 0; mlen --, mptr ++)
+	        for (mptr = (const char *)ippGetOctetString(member, j, &mlen); mptr && mlen > 0; mlen --, mptr ++)
 	        {
 	          if (*mptr == '\"' || *mptr == '\\')
-	          {
-		    if (bufptr < bufend)
-		      *bufptr++ = '\\';
-		    else
-		      bufptr ++;
-		  }
+		    cups_append_char(buffer, bufsize, &total, '\\');
 
-		  if (bufptr < bufend)
-		    *bufptr++ = *mptr;
-		  else
-		    bufptr ++;
+		  cups_append_char(buffer, bufsize, &total, *mptr);
                 }
 
-		if (bufptr < bufend)
-		  *bufptr++ = '\"';
-		else
-		  bufptr ++;
+		cups_append_char(buffer, bufsize, &total, '\"');
 	        break;
 
             case IPP_TAG_DATE :
@@ -1646,6 +1642,9 @@ cups_collection_string(
 		  const ipp_uchar_t *date = ippGetDate(member, j);
 					/* Date value */
 
+		  if (!date)
+		    break;
+
 		  year = (date[0] << 8) | date[1];
 
 		  if (date[9] == 0 && date[10] == 0)
@@ -1653,10 +1652,7 @@ cups_collection_string(
 		  else
 		    snprintf(temp, sizeof(temp), "%04u-%02u-%02uT%02u:%02u:%02u%c%02u%02u", year, date[2], date[3], date[4], date[5], date[6], date[8], date[9], date[10]);
 
-		  if (bufptr < bufend)
-		    strlcpy(bufptr, temp, (size_t)(bufend - bufptr + 1));
-
-		  bufptr += strlen(temp);
+		  cups_append_string(buffer, bufsize, &total, temp);
 		}
                 break;
 
@@ -1673,10 +1669,7 @@ cups_collection_string(
 		  else
                     snprintf(temp, sizeof(temp), "%dx%d%s", xres, yres, units == IPP_RES_PER_INCH ? "dpi" : "dpcm");
 
-		  if (bufptr < bufend)
-		    strlcpy(bufptr, temp, (size_t)(bufend - bufptr + 1));
-
-		  bufptr += strlen(temp);
+		  cups_append_string(buffer, bufsize, &total, temp);
                 }
                 break;
 
@@ -1688,11 +1681,7 @@ cups_collection_string(
                   lower = ippGetRange(member, j, &upper);
 
 		  snprintf(temp, sizeof(temp), "%d-%d", lower, upper);
-
-		  if (bufptr < bufend)
-		    strlcpy(bufptr, temp, (size_t)(bufend - bufptr + 1));
-
-		  bufptr += strlen(temp);
+		  cups_append_string(buffer, bufsize, &total, temp);
                 }
                 break;
 
@@ -1706,31 +1695,17 @@ cups_collection_string(
             case IPP_TAG_CHARSET :
             case IPP_TAG_LANGUAGE :
             case IPP_TAG_MIMETYPE :
-		if (bufptr < bufend)
-		  *bufptr++ = '\"';
-		else
-		  bufptr ++;
+		cups_append_char(buffer, bufsize, &total, '\"');
 
-	        for (mptr = ippGetString(member, j, NULL); *mptr; mptr ++)
+	        for (mptr = ippGetString(member, j, NULL); mptr && *mptr; mptr ++)
 	        {
 	          if (*mptr == '\"' || *mptr == '\\')
-	          {
-		    if (bufptr < bufend)
-		      *bufptr++ = '\\';
-		    else
-		      bufptr ++;
-		  }
+		    cups_append_char(buffer, bufsize, &total, '\\');
 
-		  if (bufptr < bufend)
-		    *bufptr++ = *mptr;
-		  else
-		    bufptr ++;
+		  cups_append_char(buffer, bufsize, &total, *mptr);
                 }
 
-		if (bufptr < bufend)
-		  *bufptr++ = '\"';
-		else
-		  bufptr ++;
+		cups_append_char(buffer, bufsize, &total, '\"');
                 break;
 
             default :
@@ -1740,14 +1715,13 @@ cups_collection_string(
       }
     }
 
-    if (bufptr < bufend)
-      *bufptr++ = '}';
-    else
-      bufptr ++;
+    cups_append_char(buffer, bufsize, &total, '}');
   }
 
-  *bufptr = '\0';
-  return ((size_t)(bufptr - buffer + 1));
+  if (bufsize > 0)
+    buffer[total < bufsize - 1 ? total : bufsize - 1] = '\0';
+
+  return (total + 1);
 }
 
 

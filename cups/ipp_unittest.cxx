@@ -2,9 +2,10 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include <algorithm>
 #include <cstring>
-#include <string>
 #include <memory>
+#include <string>
 
 #include "absl/types/optional.h"
 #include "cups.h"
@@ -270,6 +271,67 @@ TEST(IppClientInfoTests, CupsCollectionStringNestedCollection) {
 
   ippDelete(nested_col);
   ippDelete(outer_col);
+}
+
+TEST(IppClientInfoTests, CupsCollectionStringZeroBuffer) {
+  ScopedIppPtr ipp = WrapIpp(ippNew());
+  ScopedIppPtr col = WrapIpp(ippNew());
+  ippAddString(col.get(), IPP_TAG_ZERO, IPP_TAG_KEYWORD, "a", nullptr, "1");
+
+  ipp_attribute_t* attr =
+      ippAddCollection(ipp.get(), IPP_TAG_OPERATION, "test-attr", col.get());
+  ASSERT_TRUE(attr);
+
+  char sentinel[4] = {'X', 'X', 'X', 'X'};
+  size_t len = _cupsCollectionString(attr, sentinel, 0);
+  EXPECT_EQ(len, strlen("{a=\"1\"}") + 1);
+  EXPECT_EQ(sentinel[0], 'X');
+  EXPECT_EQ(sentinel[1], 'X');
+  EXPECT_EQ(sentinel[2], 'X');
+  EXPECT_EQ(sentinel[3], 'X');
+  EXPECT_EQ(_cupsCollectionString(attr, nullptr, 0), strlen("{a=\"1\"}") + 1);
+}
+
+TEST(IppClientInfoTests, CupsCollectionStringTruncation) {
+  ScopedIppPtr ipp = WrapIpp(ippNew());
+  ScopedIppPtr nested_col = WrapIpp(ippNew());
+  ippAddString(nested_col.get(), IPP_TAG_ZERO, IPP_TAG_KEYWORD, "x", nullptr,
+               "foo\"bar");
+  ippAddInteger(nested_col.get(), IPP_TAG_ZERO, IPP_TAG_INTEGER, "n", 12345);
+
+  const ipp_uchar_t date_val[11] = {0x07, 0xea, 11,  18, 12, 34,
+                                    56,   0,    '+', 5,  30};
+  ScopedIppPtr outer_col = WrapIpp(ippNew());
+  ippAddBoolean(outer_col.get(), IPP_TAG_ZERO, "flag", 0);
+  ippAddDate(outer_col.get(), IPP_TAG_ZERO, "when", date_val);
+  ippAddCollection(outer_col.get(), IPP_TAG_ZERO, "sub", nested_col.get());
+  ippAddResolution(outer_col.get(), IPP_TAG_ZERO, "res", IPP_RES_PER_CM, 300,
+                   600);
+  ippAddRange(outer_col.get(), IPP_TAG_ZERO, "rng", 1, 10);
+
+  ipp_attribute_t* attr = ippAddCollection(ipp.get(), IPP_TAG_OPERATION,
+                                           "test-attr", outer_col.get());
+  ASSERT_TRUE(attr);
+
+  const std::string expected =
+      "{noflag when=2026-11-18T12:34:56+0530 "
+      "sub={x=\"foo\\\"bar\" n=12345} res=300x600dpcm rng=1-10}";
+  const size_t full_len = expected.size() + 1;
+
+  EXPECT_EQ(_cupsCollectionString(attr, nullptr, 0), full_len);
+  EXPECT_EQ(_cupsCollectionString(attr, nullptr, 16), full_len);
+
+  for (size_t bufsize = 1; bufsize <= full_len + 2; ++bufsize) {
+    // Allocate guard bytes after the requested buffer size.
+    std::string raw(bufsize + 8, '\x5a');
+    size_t ret = _cupsCollectionString(attr, raw.data(), bufsize);
+    EXPECT_EQ(ret, full_len);
+    EXPECT_EQ(raw[std::min(expected.size(), bufsize - 1)], '\0');
+    EXPECT_EQ(std::string(raw.c_str()), expected.substr(0, bufsize - 1));
+    for (size_t k = std::min(full_len, bufsize); k < raw.size(); ++k) {
+      EXPECT_EQ(raw[k], '\x5a') << "bufsize=" << bufsize << " index=" << k;
+    }
+  }
 }
 
 }  // namespace

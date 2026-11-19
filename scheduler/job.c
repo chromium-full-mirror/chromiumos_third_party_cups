@@ -4094,7 +4094,8 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	     (attr->value_tag == IPP_TAG_NAME ||
 	      attr->value_tag == IPP_TAG_NAMELANG))
       strlcpy(title, attr->values[0].string.text, title_size);
-    else if (!strcmp(attr->name, "client-info") && attr->value_tag == IPP_TAG_BEGIN_COLLECTION)
+    else if (!strcmp(attr->name, "client-info") &&
+             ippGetValueTag(attr) == IPP_TAG_BEGIN_COLLECTION)
     {
         // Pass the 'client-info' collection to the IPP backend. See http://b/247763135.
         // `optlength` is the total required size for all options.
@@ -4105,9 +4106,9 @@ get_options(cupsd_job_t *job,		/* I - Job */
 	      strlcat(optptr, attr->name, optlength - (size_t)(optptr - options));
 	      strlcat(optptr, "=", optlength - (size_t)(optptr - options));
         optptr += strlen(optptr);
-        // `_cupsCollectionString()` returns the number of bytes written including the '\0' at the end,
-        // that's why we subtract 1 from the result.
-        optptr += _cupsCollectionString(attr, optptr, optlength - (size_t)(optptr - options)) - 1;
+        _cupsCollectionString(attr, optptr,
+                              optlength - (size_t)(optptr - options));
+        optptr += strlen(optptr);
         continue;
     }
     else if (attr->group_tag == IPP_TAG_JOB)
@@ -4341,8 +4342,18 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
 
   bytes = 0;
 
+  if (!ipp)
+    return (0);
+
   for (attr = ipp->attrs; attr != NULL; attr = attr->next)
   {
+    ipp_tag_t value_tag;
+
+    if (!attr->name)
+      continue;
+
+    value_tag = ippGetValueTag(attr);
+
    /*
     * Add space for a leading space and commas between each value.
     * For the first attribute, the leading space isn't used, so the
@@ -4357,7 +4368,7 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
     * other attributes appear as "foo=value1,value2,...,valueN".
     */
 
-    if (attr->value_tag != IPP_TAG_BOOLEAN)
+    if (value_tag != IPP_TAG_BOOLEAN)
       bytes += strlen(attr->name);
     else
       bytes += (size_t)attr->num_values * strlen(attr->name);
@@ -4366,7 +4377,7 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
     * Now add the size required for each value in the attribute...
     */
 
-    switch (attr->value_tag)
+    switch (value_tag)
     {
       case IPP_TAG_INTEGER :
       case IPP_TAG_ENUM :
@@ -4399,10 +4410,10 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
       case IPP_TAG_RESOLUTION :
          /*
 	  * A resolution is two signed integers separated by an "x" and
-	  * suffixed by the units, or 26 characters max.
+	  * suffixed by the units, or 27 characters max.
 	  */
 
-	  bytes += (size_t)attr->num_values * 26;
+	  bytes += (size_t)attr->num_values * 27;
 	  break;
 
       case IPP_TAG_STRING :
@@ -4433,7 +4444,16 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
 	  */
 
           for (i = 0; i < attr->num_values; i ++)
-	    bytes += 2 * strlen(attr->values[i].string.text) + 2;
+	    bytes += 2 * (attr->values[i].string.text ? strlen(attr->values[i].string.text) : 0) + 2;
+	  break;
+
+      case IPP_TAG_DATE :
+         /*
+	  * A date is formatted as YYYY-MM-DDTHH:MM:SS+HHMM, up to 32
+	  * characters for arbitrary raw byte values.
+	  */
+
+	  bytes += (size_t)attr->num_values * 32;
 	  break;
 
       case IPP_TAG_BEGIN_COLLECTION:
@@ -4441,12 +4461,11 @@ ipp_length(ipp_t *ipp)			/* I - IPP request */
         int coll_count = ippGetCount(attr);
         if (coll_count > 0)
         {
-          // Add space for comma separators between collections.
-          bytes += coll_count - 1;
-          // Add space for curly braces around each collection.
-          bytes += 2 * coll_count;
+          // Add space for curly braces around each collection (comma
+          // separators are already accounted for via attr->num_values above).
+          bytes += 2 * (size_t)coll_count;
           // Add space needed for each member collection.
-          for (int i = 0; i < coll_count; ++i)
+          for (i = 0; i < coll_count; ++i)
           {
             bytes += ipp_length(ippGetCollection(attr, i));
           }

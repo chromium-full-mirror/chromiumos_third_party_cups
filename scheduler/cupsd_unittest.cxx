@@ -6,6 +6,8 @@ extern "C" {
 #include "cupsd.h"
 }
 
+#include <limits>
+#include <memory>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -890,6 +892,42 @@ TEST_F(PrintJob, IppClientInfoWithNestedCollection) {
   EXPECT_EQ(
       opt_string,
       "client-info={client-name=\"a\" client-type=3 pad={x=\"nested_value\"}}");
+}
+
+TEST_F(PrintJob, IppClientInfoWithDateAndResolution) {
+  using ScopedIpp = std::unique_ptr<ipp_t, void (*)(ipp_t*)>;
+
+  SetPrinter("*PPD-Adobe: 4.3");
+  EXPECT_TRUE(Filter().empty());
+
+  const ipp_uchar_t utc_date[11] = {0x07, 0xea, 11, 18, 12, 34, 56, 0, 0, 0, 0};
+  const ipp_uchar_t max_date[11] = {0xff, 0xff, 255, 255, 255, 255,
+                                    255,  0,    '+', 255, 255};
+
+  const int xres = std::numeric_limits<int>::min();
+  const int yres = std::numeric_limits<int>::min() + 1;
+
+  ScopedIpp nested_col(ippNew(), &ippDelete);
+  ASSERT_TRUE(ippAddDate(nested_col.get(), IPP_TAG_ZERO, "d1", utc_date));
+  ASSERT_TRUE(ippAddDate(nested_col.get(), IPP_TAG_ZERO, "d2", max_date));
+  ASSERT_TRUE(ippAddResolutions(nested_col.get(), IPP_TAG_ZERO, "r", 1,
+                                IPP_RES_PER_CM, &xres, &yres));
+  ASSERT_TRUE(ippAddString(nested_col.get(), IPP_TAG_ZERO, IPP_TAG_KEYWORD, "e",
+                           nullptr, nullptr));
+
+  ScopedIpp client_info_col(ippNew(), &ippDelete);
+  ASSERT_TRUE(ippAddCollection(client_info_col.get(), IPP_TAG_ZERO, "sub",
+                               nested_col.get()));
+
+  std::vector<const ipp_t*> collections = {client_info_col.get()};
+  AddIppCollections("client-info", collections, IPP_TAG_OPERATION);
+  Password("1234");
+
+  std::string opt_string = Filter();
+  EXPECT_EQ(opt_string,
+            "client-info={sub={d1=2026-11-18T12:34:56Z "
+            "d2=65535-255-255T255:255:255+255255 "
+            "r=-2147483648x-2147483647dpcm e=\"\"}} job-password=1234");
 }
 
 // Ensure a printer is not deleted while in use by a background thread.  See
